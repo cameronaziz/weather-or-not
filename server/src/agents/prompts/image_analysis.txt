@@ -1,0 +1,10 @@
+Analyze the uploaded image to extract location or contextual information.
+
+Look for:
+- Geographic landmarks, city skylines, or recognizable locations
+- Weather conditions visible in the image
+- Text or signs that might indicate location
+- Cultural or architectural clues
+- Any other context that could help determine where this is or what the user is asking about
+
+Return a clear description of what you see and any location information you can identify.

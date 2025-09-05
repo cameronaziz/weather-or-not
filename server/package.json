@@ -1,0 +1,38 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "tsx watch --env-file=../.env src/index.ts",
+    "build": "tsc",
+    "start": "node --env-file=../.env dist/index.js",
+    "dev:docker": "tsx watch src/index.ts",
+    "start:docker": "node dist/index.js",
+    "docker:dev": "docker-compose -f docker-compose.dev.yml up --build",
+    "docker:dev:down": "docker-compose -f docker-compose.dev.yml down",
+    "docker:prod": "docker-compose up --build",
+    "docker:prod:down": "docker-compose down",
+    "vercel-build": "npm run build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/cors": "^11.1.0",
+    "@fastify/multipart": "^9.1.0",
+    "@google/genai": "^1.16.0",
+    "@google/generative-ai": "^0.24.1",
+    "@types/better-sqlite3": "^7.6.13",
+    "better-sqlite3": "^12.2.0",
+    "date-fns": "^4.1.0",
+    "date-fns-tz": "^3.2.0",
+    "fastify": "^5.5.0",
+    "tsx": "^4.20.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "typescript": "~5.8.3"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "@weather-or-not/root",
+  "version": "1.0.0",
+  "description": "",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "workspaces": [
+    "app",
+    "server"
+  ]
+}

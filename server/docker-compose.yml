@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  weather-or-not-server:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+      target: production
+    ports:
+      - "9876:9876"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - ../.env
+    restart: unless-stopped

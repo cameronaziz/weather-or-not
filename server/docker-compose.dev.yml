@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  weather-or-not-server:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+      target: development
+    ports:
+      - "9876:9876"
+    volumes:
+      - ./src:/app/server/src
+      - ./data:/app/data
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    env_file:
+      - ../.env
+    restart: unless-stopped
