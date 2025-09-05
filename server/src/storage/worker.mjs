@@ -49,7 +49,7 @@ const initDatabase = (dataDir) => {
       'INSERT OR IGNORE INTO conversations (id, user_id, last_message_datetime) VALUES (?, ?, ?)'
     ),
     selectMessages: db.prepare(
-      'SELECT text, date_time, role FROM messages WHERE conversation_id = ? ORDER BY date_time ASC'
+      'SELECT id, text, date_time, role FROM messages WHERE conversation_id = ? ORDER BY date_time ASC'
     ),
     insertMessage: db.prepare(
       'INSERT INTO messages (conversation_id, text, role, date_time) VALUES (?, ?, ?, ?)'

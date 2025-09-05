@@ -1,7 +1,7 @@
 import clsx from 'clsx';
 import { useContext, type FC } from 'react';
 import Convo from './context/convo';
-import useHandleUser from './hooks/useHandleUser';
+import useSetup from './hooks/useSetup';
 import './index.css';
 import Conversation from './ui/Conversation';
 import Header from './ui/Header';
@@ -10,7 +10,7 @@ import Recommendation from './ui/Recommendation';
 
 const WeatherOrNot: FC = () => {
   const { isConvoMode, messages } = useContext(Convo.Context)
-  useHandleUser()
+  useSetup()
 
   const hasMessages = messages.length > 0
 

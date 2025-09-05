@@ -9,3 +9,9 @@ Classify the user input into one of these categories:
 2. **location_description** - User mentions a place, location, or asks about weather somewhere
    Examples: "New York", "What's the weather in Paris?", "Big Apple", "Where did Taylor Swift perform?"
    Response: location_description
+
+3. **error** - Input is unclear, unrelated to weather/clothing, or cannot be classified
+   Examples: "Hello", "What's 2+2?", "Tell me a joke", unclear or garbled text
+   Response: error
+
+Always respond with ONLY the classification keyword (direct_weather, location_description, or error). Do not include explanations or additional text.

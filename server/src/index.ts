@@ -10,9 +10,10 @@ const STREAM_HEADERS = {
   'Content-Type': 'text/event-stream',
   'Cache-Control': 'no-cache',
   Connection: 'keep-alive',
-  'Access-Control-Allow-Origin': process.env.NODE_ENV === 'production' 
-    ? 'https://weatherornot.cameronaziz.dev' 
-    : 'http://localhost:5173',
+  'Access-Control-Allow-Origin':
+    process.env.NODE_ENV === 'production'
+      ? 'https://weatherornot.cameronaziz.dev'
+      : 'http://localhost:5173',
   'Access-Control-Allow-Credentials': 'true',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
@@ -61,11 +62,42 @@ fastify.get('/register', async (request, reply) => {
   }
 });
 
+fastify.get('/conversation', async (request, reply) => {
+  const { userId } = request.cookies;
+  const { convoId } = request.query as { convoId?: string };
+
+  if (!convoId || !userId) {
+    reply.code(400).send({ message: 'Missing convoId parameter' });
+    return;
+  }
+
+  try {
+    const conversation = await storage.getConversation(userId, convoId);
+    const messages = conversation
+      .filter((message) => {
+        if (message.text.text) {
+          return true;
+        }
+        return message.text.functionCall?.name === 'confirm_location'; // dirty
+      })
+      .map((message) => ({
+        id: message.id.toString(),
+        role: message.role,
+        text: message.text.text ?? message.text.functionCall?.args?.message,
+      }));
+    reply.send({ messages });
+  } catch (error) {
+    console.error('Error fetching conversation:', error);
+    reply.code(404).send({ message: 'Conversation not found' });
+  }
+});
+
 fastify.options('/prompt', async (request, reply) => {
   reply.headers({
-    'Access-Control-Allow-Origin': process.env.NODE_ENV === 'production' 
-      ? 'https://weatherornot.cameronaziz.dev' 
-      : 'http://localhost:5173',
+    'Access-Control-Allow-Origin':
+      process.env.NODE_ENV === 'production'
+        ? 'https://weatherornot.cameronaziz.dev'
+        : 'http://localhost:5173',
     'Access-Control-Allow-Credentials': 'true',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',

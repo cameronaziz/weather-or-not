@@ -71,7 +71,7 @@ const useSendPrompt: UseSendPrompt = () => {
               text: response.data.recommendation,
               id: `${Math.random()}`,
             });
-            setURLParam('convoId');
+            setURLParam('convoId', response.convoId);
             break;
         }
       }

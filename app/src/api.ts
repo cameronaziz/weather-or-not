@@ -1,4 +1,4 @@
-type GET_ENDPOINT = 'register';
+type GET_ENDPOINT = 'register' | 'conversation';
 type POST_ENDPOINT = 'prompt';
 
 class API {
@@ -12,7 +12,7 @@ class API {
     return formData;
   }
 
-  public static path(endpoint: GET_ENDPOINT | POST_ENDPOINT) {
+  private static basePath(endpoint: GET_ENDPOINT | POST_ENDPOINT) {
     // In production (including vercel --prod), use relative API routes
     if (import.meta.env.PROD) {
       return `/api/${endpoint}`;
@@ -22,8 +22,24 @@ class API {
     return `http://localhost:${port}/${endpoint}`;
   }
 
-  static async get<T>(endpoint: GET_ENDPOINT): Promise<T> {
-    const path = API.path(endpoint);
+  private static path(
+    endpoint: GET_ENDPOINT | POST_ENDPOINT,
+    params?: Record<string, string>
+  ) {
+    const basePath = API.basePath(endpoint);
+    if (!params) {
+      return basePath;
+    }
+    const queryString = new URLSearchParams(params).toString();
+
+    return `${basePath}?${queryString}`;
+  }
+
+  static async get<T>(
+    endpoint: GET_ENDPOINT,
+    query?: Record<string, string>
+  ): Promise<T> {
+    const path = API.path(endpoint, query);
     const response = await fetch(path, {
       method: 'GET',
       credentials: 'include',

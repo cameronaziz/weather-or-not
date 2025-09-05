@@ -17,11 +17,24 @@ class RouterAgent extends Agent {
   }
 
   async run(): Promise<Route> {
-    const response = await this.generateContent();
+    const conversation = await this.memory.getConversation();
+    console.log('Router input conversation:', JSON.stringify(conversation, null, 2));
+
+    const response = await this.generateContent({
+      toolConfig: {
+        functionCallingConfig: {
+          mode: 'NONE'
+        }
+      }
+    });
 
     const candidate = response.candidates?.[0];
     const part = candidate?.content?.parts?.[0];
     const classification = part?.text?.trim().toLowerCase() || 'error';
+    
+    console.log('Raw router response text:', part?.text);
+    console.log('Router classification after trim/lowercase:', classification);
+    console.log('Is acceptable?', isAcceptableType(classification));
 
     await this.memory.recordMessage('model', {
       functionCall: {

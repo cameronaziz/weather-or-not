@@ -5,6 +5,7 @@ export type Role = 'model' | 'user';
 export type Route = 'direct_weather' | 'location_description' | 'error';
 
 export type Message = {
+  id: number;
   text: Part;
   dateTime: string;
   role: Role;

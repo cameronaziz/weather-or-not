@@ -4,6 +4,7 @@ import { existsSync, mkdirSync } from 'fs';
 import { Message, MessageToStore, Role, StoredConversation } from '../types';
 
 type RawMessage = {
+  id: number;
   text: string;
   date_time: string;
   role: string;
@@ -178,7 +179,7 @@ class Storage {
   private transformRawMessages(rawMessages: RawMessage[]): Message[] {
     return rawMessages.map(
       (msg): Message => ({
-        ...msg,
+        id: msg.id,
         text: JSON.parse(msg.text),
         dateTime: msg.date_time,
         role: msg.role as Role,
