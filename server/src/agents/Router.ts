@@ -23,7 +23,7 @@ class RouterAgent extends Agent {
     const part = candidate?.content?.parts?.[0];
     const classification = part?.text?.trim().toLowerCase() || 'error';
 
-    this.memory.recordMessage('model', {
+    await this.memory.recordMessage('model', {
       functionCall: {
         name: 'router',
         args: {
@@ -32,7 +32,7 @@ class RouterAgent extends Agent {
       },
     });
 
-    this.memory.recordMessage('user', {
+    await this.memory.recordMessage('user', {
       functionResponse: {
         name: 'router',
         response: {

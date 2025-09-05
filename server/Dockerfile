@@ -20,7 +20,7 @@ COPY . .
 RUN npm rebuild better-sqlite3 --workspace=server
 RUN mkdir -p ./data
 EXPOSE 9876
-CMD ["npm", "run", "dev:docker", "--workspace=server"]
+CMD ["npm", "run", "dev", "--workspace=server"]
 
 # Production stage
 FROM base AS production
@@ -30,4 +30,4 @@ RUN npm rebuild better-sqlite3 --workspace=server
 RUN npx tsc --project server
 RUN mkdir -p ./data
 EXPOSE 9876
-CMD ["npm", "run", "start:docker", "--workspace=server"]
+CMD ["node", "server/dist/index.js"]

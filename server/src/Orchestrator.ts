@@ -29,7 +29,7 @@ class Orchestrator {
   }
 
   private async *textInput(prompt: string) {
-    this.memory.recordMessage('user', prompt);
+    await this.memory.recordMessage('user', prompt);
     const route = await this.routerAgent.run();
 
     switch (route) {
@@ -127,6 +127,9 @@ class Orchestrator {
   }
 
   private get attireAgent() {
+    if (this._attireAgent) {
+      return this._attireAgent;
+    }
     this._attireAgent = new AttireAgent(this.memory);
     return this._attireAgent;
   }

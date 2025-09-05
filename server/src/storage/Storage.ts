@@ -1,73 +1,91 @@
-import Database from 'better-sqlite3';
-import fs from 'fs';
-import path from 'path';
+import { randomUUID } from 'crypto';
+import { Worker } from 'worker_threads';
+import { existsSync, mkdirSync } from 'fs';
 import { Message, MessageToStore, Role, StoredConversation } from '../types';
 
+type RawMessage = {
+  text: string;
+  date_time: string;
+  role: string;
+};
+
+type RawConversation = {
+  id: string;
+  last_message_datetime: string;
+};
+
+const DATA_DIR = '../data';
+
 class Storage {
-  private database: Database.Database;
+  private worker: Worker;
+  private pendingOperations: Map<
+    string,
+    { resolve: Function; reject: Function }
+  > = new Map();
 
   constructor() {
-    const dataDir = path.join(__dirname, '..', `data`);
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
+    // Ensure data directory exists
+    if (!existsSync(DATA_DIR)) {
+      mkdirSync(DATA_DIR, { recursive: true });
     }
 
-    try {
-      this.database = new Database('./data/weather-or-not.db');
-      this.initializeTables();
-    } catch (error) {
-      console.error('Failed to initialize database:', error);
-      process.exit(1);
-    }
+    this.worker = new Worker('./src/storage/worker.mjs');
+
+    this.worker.on('message', ({ id, result, error }) => {
+      const pending = this.pendingOperations.get(id);
+      if (pending) {
+        this.pendingOperations.delete(id);
+        if (error) {
+          pending.reject(new Error(error));
+        } else {
+          pending.resolve(result);
+        }
+      }
+    });
+
+    this.callWorker('init', [DATA_DIR]);
   }
 
-  private ensureUser(userId: string) {
-    const userExists = this.database
-      .prepare('SELECT id FROM users WHERE id = ?')
-      .get(userId);
-    if (!userExists) {
-      this.database.prepare('INSERT INTO users (id) VALUES (?)').run(userId);
-    }
+  async createUser(userId?: string): Promise<string> {
+    const id = userId ?? crypto.randomUUID();
+    await this.callWorker('insertUser', [id]);
+    return id;
   }
 
-  getHistory(userId: string): Record<string, StoredConversation> {
-    this.ensureUser(userId);
+  async verifyUser(userId: string): Promise<string> {
+    const userExists = await this.callWorker('selectUser', [userId]);
 
-    // Get all conversations for this user
-    const conversations = this.database
-      .prepare(
-        `SELECT id, last_message_datetime
-         FROM conversations
-         WHERE user_id = ?
-         ORDER BY last_message_datetime DESC`
-      )
-      .all(userId) as Array<{ id: string; last_message_datetime: string }>;
+    if (userExists) {
+      return userId;
+    }
+
+    const newUserId = randomUUID();
+    await this.callWorker('insertUser', [newUserId]);
+    return newUserId;
+  }
+
+  async getHistory(
+    userId: string
+  ): Promise<Record<string, StoredConversation>> {
+    await this.ensureUser(userId);
+
+    const conversations = (await this.callWorker('selectConversations', [
+      userId,
+    ])) as RawConversation[];
 
     const result: Record<string, StoredConversation> = {};
 
-    for (const conv of conversations) {
-      // Get messages for this conversation
-      const rawMessages = this.database
-        .prepare(
-          `SELECT text, date_time, role
-           FROM messages
-           WHERE conversation_id = ?
-           ORDER BY date_time ASC`
-        )
-        .all(conv.id) as Array<{
-        text: string;
-        date_time: string;
-        role: string;
-      }>;
+    // Ensure conversations is an array before iterating
+    if (!Array.isArray(conversations)) {
+      return result;
+    }
 
-      const messages = rawMessages.map(
-        (msg): Message => ({
-          ...msg,
-          text: JSON.parse(msg.text),
-          dateTime: msg.date_time,
-          role: msg.role as Role,
-        })
-      );
+    for (const conv of conversations) {
+      const rawMessages = (await this.callWorker('selectMessages', [
+        conv.id,
+      ])) as RawMessage[];
+
+      const messages = this.transformRawMessages(rawMessages);
 
       result[conv.id] = {
         convoId: conv.id,
@@ -79,31 +97,22 @@ class Storage {
     return result;
   }
 
-  getFullConversation(userId: string, convoId: string): StoredConversation {
+  async getFullConversation(
+    userId: string,
+    convoId: string
+  ): Promise<StoredConversation> {
     const key = convoId || 'default';
 
-    this.ensureUser(userId);
+    await this.ensureUser(userId);
 
-    // Check if conversation exists
-    const conversation = this.database
-      .prepare(
-        `SELECT id, last_message_datetime
-         FROM conversations
-         WHERE id = ? AND user_id = ?`
-      )
-      .get(key, userId) as
-      | { id: string; last_message_datetime: string }
-      | undefined;
+    const conversation = (await this.callWorker('selectConversation', [
+      key,
+      userId,
+    ])) as { id: string; last_message_datetime: string } | undefined;
 
     if (!conversation) {
-      // Create new conversation
       const now = new Date().toISOString();
-      this.database
-        .prepare(
-          `INSERT INTO conversations (id, user_id, last_message_datetime)
-           VALUES (?, ?, ?)`
-        )
-        .run(key, userId, now);
+      await this.ensureConversation(key, userId, now);
 
       return {
         convoId: key,
@@ -112,22 +121,11 @@ class Storage {
       };
     }
 
-    // Get messages for existing conversation
-    const rawMessages = this.database
-      .prepare(
-        `SELECT text, date_time, role
-         FROM messages
-         WHERE conversation_id = ?
-         ORDER BY date_time ASC`
-      )
-      .all(key) as Array<{ text: string; date_time: string; role: string }>;
+    const rawMessages = (await this.callWorker('selectMessages', [
+      key,
+    ])) as RawMessage[];
 
-    const messages = rawMessages.map((msg) => ({
-      ...msg,
-      text: JSON.parse(msg.text),
-      dateTime: msg.date_time,
-      role: msg.role as Role,
-    }));
+    const messages = this.transformRawMessages(rawMessages);
 
     return {
       convoId: key,
@@ -136,96 +134,82 @@ class Storage {
     };
   }
 
-  getConversation(userId: string, convoId: string): Message[] {
-    return this.getFullConversation(userId, convoId).messages;
+  async getConversation(userId: string, convoId: string): Promise<Message[]> {
+    const conversation = await this.getFullConversation(userId, convoId);
+    return conversation.messages;
   }
 
-  addMessage(userId: string, convoId: string, message: MessageToStore): void {
+  async addMessage(
+    userId: string,
+    convoId: string,
+    message: MessageToStore
+  ): Promise<void> {
     const key = convoId || 'default';
+    await this.ensureUser(userId);
 
-    // Ensure user exists
-    this.ensureUser(userId);
+    await this.ensureConversation(key, userId, message.dateTime);
 
-    // Ensure conversation exists
-    const conversationExists = this.database
-      .prepare('SELECT id FROM conversations WHERE id = ? AND user_id = ?')
-      .get(key, userId);
+    await this.callWorker('insertMessage', [
+      key,
+      message.text,
+      message.role,
+      message.dateTime,
+    ]);
+
+    await this.callWorker('updateConversationTimestamp', [
+      message.dateTime,
+      key,
+      userId,
+    ]);
+  }
+
+  async close(): Promise<void> {
+    await this.worker.terminate();
+  }
+
+  private callWorker(method: string, args: any[]): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const id = randomUUID();
+      this.pendingOperations.set(id, { resolve, reject });
+      this.worker.postMessage({ id, method, args });
+    });
+  }
+
+  private transformRawMessages(rawMessages: RawMessage[]): Message[] {
+    return rawMessages.map(
+      (msg): Message => ({
+        ...msg,
+        text: JSON.parse(msg.text),
+        dateTime: msg.date_time,
+        role: msg.role as Role,
+      })
+    );
+  }
+
+  private async ensureConversation(
+    conversationId: string,
+    userId: string,
+    timestamp: string
+  ): Promise<void> {
+    const conversationExists = await this.callWorker('selectConversation', [
+      conversationId,
+      userId,
+    ]);
 
     if (!conversationExists) {
-      this.database
-        .prepare(
-          `INSERT INTO conversations (id, user_id, last_message_datetime)
-           VALUES (?, ?, ?)`
-        )
-        .run(key, userId, message.dateTime);
+      await this.callWorker('insertConversation', [
+        conversationId,
+        userId,
+        timestamp,
+      ]);
     }
-
-    // Insert message
-    this.database
-      .prepare(
-        `INSERT INTO messages (conversation_id, text, role, date_time)
-         VALUES (?, ?, ?, ?)`
-      )
-      .run(key, message.text, message.role, message.dateTime);
-
-    // Update conversation's last message datetime
-    this.database
-      .prepare(
-        `UPDATE conversations
-         SET last_message_datetime = ?
-         WHERE id = ? AND user_id = ?`
-      )
-      .run(message.dateTime, key, userId);
   }
 
-  private initializeTables(): void {
-    this.database.exec(`
-      CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    this.database.exec(`
-      CREATE TABLE IF NOT EXISTS conversations (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        last_message_datetime DATETIME NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-      )
-    `);
-
-    this.database.exec(`
-      CREATE TABLE IF NOT EXISTS messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        conversation_id TEXT NOT NULL,
-        text TEXT NOT NULL,
-        role TEXT NOT NULL CHECK (role IN ('user', 'model')),
-        date_time DATETIME NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
-      )
-    `);
-
-    this.database.exec(`
-      CREATE INDEX IF NOT EXISTS idx_conversations_user_id
-      ON conversations(user_id)
-    `);
-
-    this.database.exec(`
-      CREATE INDEX IF NOT EXISTS idx_messages_conversation_id
-      ON messages(conversation_id)
-    `);
-
-    this.database.exec(`
-      CREATE INDEX IF NOT EXISTS idx_messages_date_time
-      ON messages(date_time)
-    `);
-  }
-
-  close(): void {
-    this.database.close();
+  private async ensureUser(userId: string): Promise<void> {
+    const userExists = await this.callWorker('selectUser', [userId]);
+    if (!userExists) {
+      await this.callWorker('insertUser', [userId]);
+    }
   }
 }
 

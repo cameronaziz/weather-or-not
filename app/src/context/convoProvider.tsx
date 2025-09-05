@@ -58,7 +58,7 @@ const ConvoContextProvider: FC<ConvoContextProviderProps> = (props) => {
   }, [])
 
   const value = useMemo((): ConvoContextValue => ({
-    messages: isConvoMode ? messages : [],
+    messages,
     isConvoMode,
     addMessage,
     input,

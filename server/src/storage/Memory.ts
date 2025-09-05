@@ -14,20 +14,31 @@ class Memory {
   public readonly convoId: string;
   public readonly userId: string;
   public readonly model: string;
+  private initialized: boolean = false;
 
   constructor(requestBody: PromptRequestBody, private storage: Storage) {
     this.model = 'gemini-2.5-flash';
     this.convoId = requestBody.convoId ?? crypto.randomUUID();
     this.userId = requestBody.userId;
-    const fullConversation = this.storage.getFullConversation(
+    this.conversation = [];
+    this.history = {};
+  }
+
+  async initialize(): Promise<void> {
+    if (this.initialized) return;
+
+    const fullConversation = await this.storage.getFullConversation(
       this.userId,
       this.convoId
     );
-    this.conversation = fullConversation.messages;
-    this.history = this.storage.getHistory(this.userId);
+    this.conversation = fullConversation.messages || [];
+    this.history = await this.storage.getHistory(this.userId);
+    this.initialized = true;
   }
 
-  public recordMessage(role: Role, input: string | Part) {
+  public async recordMessage(role: Role, input: string | Part): Promise<void> {
+    await this.initialize();
+
     const dateTime = new Date().toISOString();
     const part: Part = typeof input === 'string' ? { text: input } : input;
     const messageToStore: MessageToStore = {
@@ -36,7 +47,7 @@ class Memory {
       dateTime,
     };
 
-    this.storage.addMessage(this.userId, this.convoId, messageToStore);
+    await this.storage.addMessage(this.userId, this.convoId, messageToStore);
 
     this.conversation.push({
       role,
@@ -45,7 +56,9 @@ class Memory {
     });
   }
 
-  public getConversation(): Content[] {
+  public async getConversation(): Promise<Content[]> {
+    await this.initialize();
+
     return this.conversation.map(
       (message): Content => ({
         role: message.role,
@@ -54,7 +67,8 @@ class Memory {
     );
   }
 
-  public getHistory(last: number): StoredConversation[] {
+  public async getHistory(last: number): Promise<StoredConversation[]> {
+    await this.initialize();
     return Object.values(this.history).slice(-last);
   }
 }

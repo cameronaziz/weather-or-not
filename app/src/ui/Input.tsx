@@ -1,21 +1,32 @@
 import clsx from "clsx"
-import { useCallback, useContext, useEffect, type ChangeEvent, type FC } from "react"
+import { useCallback, useContext, useEffect, useRef, type ChangeEvent, type FC } from "react"
 import Convo from "../context/convo"
 import useSendPrompt from "../hooks/useSendPrompt"
 
 const Input: FC = () => {
   const [loading, sendPrompt] = useSendPrompt()
-  const { input, isConvoMode, set } = useContext(Convo.Context)
+  const { input, isConvoMode, messages, set } = useContext(Convo.Context)
+  const hasMessages = messages.length > 0
+  const ref = useRef<HTMLInputElement>(null)
 
-  const onSubmit = useCallback(() => {
+  const focus = useCallback(() => {
+    const { current } = ref
+    if (current) {
+      current.focus()
+    }
+  }, [])
+
+  const onSubmit = useCallback(async () => {
     const prompt = input.trim()
     if (prompt.length > 0 && !loading) {
-      sendPrompt(input)
+      await sendPrompt(input)
+      focus()
     }
-  }, [input, loading, sendPrompt])
+  }, [input, focus, loading, sendPrompt])
 
 
   useEffect(() => {
+    focus()
     const onKeyPress = (event: KeyboardEvent) => {
       if (event.key === 'Enter') {
         onSubmit()
@@ -34,17 +45,21 @@ const Input: FC = () => {
   }, [set])
 
   return (
-    <div className="absolute left-1/2 right-1/2 -translate-x-1/2 bottom-[10vh] min-w-[40vw] flex">
+    <div className={clsx("fixed left-1/2 -translate-x-1/2 flex z-10 min-w-[40vw] transition-all duration-700 ease-in-out", {
+      "bottom-[40vh]": !hasMessages,
+      "bottom-[10vh]": hasMessages
+    })}>
       <div className="w-full">
         <label
-          htmlFor="search-input"
+          htmlFor="prompt-input"
           className="block text-sm text-gray-700 font-medium dark:text-white"
         >
           <span className="sr-only">Search Weather</span>
         </label>
         <input
+          ref={ref}
           type="text"
-          id="search-input"
+          id="prompt-input"
           onChange={onChange}
           value={input}
           disabled={loading}

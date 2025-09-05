@@ -1,6 +1,5 @@
 import { useCallback, useContext, useState } from 'react';
 import API from '../api';
-import Assessment from '../context/assessment';
 import Convo from '../context/convo';
 import sanitizeUserInput from '../lib/sanitize';
 import { getURLParam, setURLParam } from '../lib/urlParams';
@@ -8,23 +7,23 @@ import type { RequestResult } from '../types';
 
 type UseSendPrompt = () => [
   isLoading: boolean,
-  sendPrompt: (prompt: string) => void
+  sendPrompt: (prompt: string) => Promise<void>
 ];
 
 const useSendPrompt: UseSendPrompt = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const { set: setAssessmentContext, reset } = useContext(Assessment.Context);
   const { set: setConvoContext, addMessage } = useContext(Convo.Context);
 
   const sendPrompt = useCallback(
     async (input: string) => {
       const prompt = sanitizeUserInput(input);
       setIsLoading(true);
-      reset();
+      setConvoContext('input', '');
 
       addMessage({
         role: 'user',
         text: prompt,
+        id: `${Math.random()}`,
       });
 
       const payload = {
@@ -41,7 +40,11 @@ const useSendPrompt: UseSendPrompt = () => {
               convoId,
             } = response;
             setURLParam('convoId', convoId);
-            setAssessmentContext('locationName', message);
+            addMessage({
+              role: 'system',
+              text: message,
+              id: `${Math.random()}`,
+            });
             break;
           }
           case 'followup': {
@@ -53,29 +56,28 @@ const useSendPrompt: UseSendPrompt = () => {
               addMessage({
                 role: 'system',
                 text: question,
+                id: `${Math.random()}`,
               });
               setConvoContext({
                 isConvoMode: true,
-                input: '',
               });
               setURLParam('convoId', convoId);
             }
             break;
           }
           case 'complete':
-            setAssessmentContext({
-              ...response.data,
+            addMessage({
+              role: 'system',
+              text: response.data.recommendation,
+              id: `${Math.random()}`,
             });
-            setConvoContext({
-              input: '',
-            });
-            setURLParam('convoId', response.convoId);
+            setURLParam('convoId');
             break;
         }
       }
       setIsLoading(false);
     },
-    [addMessage, reset, setAssessmentContext, setConvoContext]
+    [addMessage, setConvoContext]
   );
 
   return [isLoading, sendPrompt];

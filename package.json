@@ -5,8 +5,15 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=app\" \"npm run docker:dev --workspace=server\"",
+    "dev:down": "npm run docker:dev:down --workspace=server"
+  },
   "workspaces": [
     "app",
     "server"
-  ]
+  ],
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
 }

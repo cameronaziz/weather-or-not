@@ -34,7 +34,7 @@ class WeatherAgent extends Agent {
     const functionCall = candidate?.content?.parts?.[0]?.functionCall;
 
     if (functionCall) {
-      this.memory.recordMessage('model', {
+      await this.memory.recordMessage('model', {
         functionCall: {
           name: functionCall.name,
           args: functionCall.args,
@@ -48,7 +48,7 @@ class WeatherAgent extends Agent {
           searchString: string;
         };
         const searchResults = await webSearch(searchString);
-        this.memory.recordMessage('user', {
+        await this.memory.recordMessage('user', {
           functionResponse: {
             name: functionCall?.name,
             response: {
@@ -61,8 +61,8 @@ class WeatherAgent extends Agent {
       }
       case 'get_history': {
         const { last } = functionCall.args as { last: number };
-        const history = this.memory.getHistory(last);
-        this.memory.recordMessage('user', {
+        const history = await this.memory.getHistory(last);
+        await this.memory.recordMessage('user', {
           functionResponse: {
             name: functionCall?.name,
             response: {
@@ -87,7 +87,7 @@ class WeatherAgent extends Agent {
           name,
         });
 
-        this.memory.recordMessage('user', {
+        await this.memory.recordMessage('user', {
           functionResponse: {
             name: functionCall?.name,
             response: weather,
@@ -106,6 +106,19 @@ class WeatherAgent extends Agent {
         const { question } = functionCall.args as {
           question: string;
         };
+        
+        await this.memory.recordMessage('user', {
+          functionResponse: {
+            name: functionCall?.name,
+            response: {
+              question,
+            },
+          },
+        });
+        
+        // Record the clarification question in memory so it's included in subsequent conversations
+        await this.memory.recordMessage('model', question);
+        
         return {
           action: 'followup',
           convoId: this.memory.convoId,

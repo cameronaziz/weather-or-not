@@ -10,6 +10,12 @@ const STREAM_HEADERS = {
   'Content-Type': 'text/event-stream',
   'Cache-Control': 'no-cache',
   Connection: 'keep-alive',
+  'Access-Control-Allow-Origin': process.env.NODE_ENV === 'production' 
+    ? 'https://weatherornot.cameronaziz.dev' 
+    : 'http://localhost:5173',
+  'Access-Control-Allow-Credentials': 'true',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
 const storage = new Storage();
@@ -33,45 +39,57 @@ fastify.register(multipart);
 fastify.register(cookie);
 
 fastify.get('/register', async (request, reply) => {
-  const { userId } = request.cookies;
-
-  if (userId) {
+  if (request.cookies.userId) {
+    const userId = await storage.createUser(request.cookies.userId);
     reply.send({
       userId,
       isNew: false,
     });
   } else {
-    const newUserId = crypto.randomUUID();
-    reply.setCookie('userId', newUserId, {
+    const userId = await storage.createUser();
+    reply.setCookie('userId', userId, {
       httpOnly: true,
       secure: true,
       sameSite: 'none',
       partitioned: true,
-      maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year
+      maxAge: 365 * 24 * 60 * 60 * 1000,
     });
     reply.send({
-      userId: newUserId,
+      userId,
       isNew: true,
     });
   }
+});
+
+fastify.options('/prompt', async (request, reply) => {
+  reply.headers({
+    'Access-Control-Allow-Origin': process.env.NODE_ENV === 'production' 
+      ? 'https://weatherornot.cameronaziz.dev' 
+      : 'http://localhost:5173',
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  });
+  reply.code(200).send();
 });
 
 fastify.post('/prompt', async (request, reply) => {
   const requestBody = await processRequest(request);
 
   if (!requestBody.userId) {
-    reply.code(400).send({ message: 'Missing userId' });
-    return;
+    const userId = await storage.createUser();
+    requestBody.userId = userId;
   }
 
-  if (!requestBody.userId || !requestBody.prompt) {
+  if (!requestBody.prompt) {
     reply.code(400).send({ message: 'Missing required fields' });
     return;
   }
 
-  // Set streaming headers (CORS handled by plugin)
-  reply.headers(STREAM_HEADERS);
   reply.hijack();
+
+  // Set CORS and streaming headers on the raw response
+  reply.raw.writeHead(200, STREAM_HEADERS);
 
   try {
     const orchestrator = new Orchestrator(requestBody, storage);

@@ -9,9 +9,9 @@ services:
     ports:
       - "9876:9876"
     volumes:
-      - ./src:/app/server/src
-      - ./data:/app/data
+      - ..:/app
       - /app/node_modules
+      - /app/server/node_modules
     environment:
       - NODE_ENV=development
     env_file:

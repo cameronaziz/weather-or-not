@@ -56,6 +56,7 @@ export type AssessmentContextValue = AssessmentContextBaseValue & {
 };
 
 export type Message = {
+  id: string;
   role: 'user' | 'system';
   text: string;
 };

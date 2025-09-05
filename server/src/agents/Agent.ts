@@ -50,16 +50,17 @@ abstract class Agent {
     return contentsList.map((content) => Agent.createContent(content));
   }
 
-  protected generateContent(
+  protected async generateContent(
     config?: GenerateContentConfig,
-    contents?: GenerateParam | null
+    param?: GenerateParam | null
   ) {
-    const conversation = this.memory.getConversation();
-    const additional = contents ? Agent.createContents(contents) : [];
+    const conversation = await this.memory.getConversation();
+    const additional = param ? Agent.createContents(param) : [];
+    const contents = [...conversation, ...additional];
 
     return this.model.generateContent({
       model: this.memory.model,
-      contents: [...conversation, ...additional],
+      contents,
       config: {
         ...this.config,
         ...config,
