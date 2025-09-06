@@ -25,7 +25,9 @@ class Memory {
   }
 
   async initialize(): Promise<void> {
-    if (this.initialized) return;
+    if (this.initialized) {
+      return;
+    }
 
     const fullConversation = await this.storage.getFullConversation(
       this.userId,
@@ -36,7 +38,11 @@ class Memory {
     this.initialized = true;
   }
 
-  public async recordMessage(role: Role, input: string | Part, internal?: boolean): Promise<void> {
+  public async recordMessage(
+    role: Role,
+    input: string | Part,
+    internal?: boolean
+  ): Promise<void> {
     await this.initialize();
 
     const dateTime = new Date().toISOString();
@@ -75,7 +81,7 @@ class Memory {
 
     // Filter out internal messages for router classification
     return this.conversation
-      .filter(message => !message.internal)
+      .filter((message) => !message.internal)
       .map(
         (message): Content => ({
           role: message.role,
