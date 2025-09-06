@@ -1,10 +1,10 @@
 import { randomUUID } from 'crypto';
-import { Worker } from 'worker_threads';
 import { existsSync, mkdirSync } from 'fs';
+import { Worker } from 'worker_threads';
 import { Message, MessageToStore, Role, StoredConversation } from '../types';
 
 type RawMessage = {
-  id: number;
+  id: string;
   text: string;
   date_time: string;
   role: string;
@@ -129,7 +129,9 @@ class Storage {
     ])) as RawMessage[];
 
     const messages = this.transformRawMessages(rawMessages);
-    const filteredMessages = includeInternal ? messages : messages.filter(msg => !msg.internal);
+    const filteredMessages = includeInternal
+      ? messages
+      : messages.filter((msg) => !msg.internal);
 
     return {
       convoId: key,
@@ -143,7 +145,10 @@ class Storage {
     return conversation.messages;
   }
 
-  async getPublicConversation(userId: string, convoId: string): Promise<Message[]> {
+  async getPublicConversation(
+    userId: string,
+    convoId: string
+  ): Promise<Message[]> {
     const conversation = await this.getFullConversation(userId, convoId, false);
     return conversation.messages;
   }
