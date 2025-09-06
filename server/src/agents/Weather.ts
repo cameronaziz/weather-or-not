@@ -34,7 +34,6 @@ class WeatherAgent extends Agent {
     const parts = candidate?.content?.parts || [];
     const functionCall = parts.find((part) => part.functionCall)?.functionCall;
 
-
     if (functionCall) {
       await this.memory.recordMessage('model', {
         functionCall: {

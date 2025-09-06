@@ -2,11 +2,7 @@ import Memory from '../storage/Memory';
 import { Route } from '../types';
 import Agent from './Agent';
 
-const ACCEPTABLE_OUTPUTS = new Set([
-  'location_description',
-  'direct_weather',
-  'error',
-]);
+const ACCEPTABLE_OUTPUTS = new Set(['location_description', 'direct_weather']);
 
 const isAcceptableType = (output: string): output is Route =>
   ACCEPTABLE_OUTPUTS.has(output);
@@ -19,6 +15,7 @@ class RouterAgent extends Agent {
   async run(): Promise<Route> {
     // Use filtered conversation without internal messages
     const conversation = await this.memory.getConversationForRouter();
+
     const response = await this.model.generateContent({
       model: this.memory.model,
       contents: conversation,
@@ -35,7 +32,7 @@ class RouterAgent extends Agent {
       return classification;
     }
 
-    return 'error';
+    return 'location_description';
   }
 }
 

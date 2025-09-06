@@ -6,12 +6,9 @@ Classify the user input into one of these categories:
    Examples: "I'm going somewhere cold", "It's raining", "I need warm clothes", "70°F and sunny", "What should I wear for rain and 45 degrees?"
    Response: direct_weather
 
-2. **location_description** - User mentions a place, location, or asks about weather somewhere
-   Examples: "New York", "What's the weather in Paris?", "Big Apple", "Where did Taylor Swift perform?"
+2. **location_description** - Everything else (places, locations, unclear inputs, followup responses, etc.)
+   Examples: "New York", "What's the weather in Paris?", "Big Apple", "with drake", "3rd street", "Hello", unclear text
+   Default: When in doubt, use this classification - the WeatherAgent will handle clarification if needed
    Response: location_description
 
-3. **error** - Input is unclear, unrelated to weather/clothing, or cannot be classified
-   Examples: "Hello", "What's 2+2?", "Tell me a joke", unclear or garbled text
-   Response: error
-
-Always respond with ONLY the classification keyword (direct_weather, location_description, or error). Do not include explanations or additional text.
+Always respond with ONLY the classification keyword (direct_weather or location_description). Do not include explanations or additional text.

@@ -2,7 +2,7 @@ import { Part } from '@google/genai';
 
 export type Role = 'model' | 'user';
 
-export type Route = 'direct_weather' | 'location_description' | 'error';
+export type Route = 'direct_weather' | 'location_description';
 
 export type Message = {
   id: string;
