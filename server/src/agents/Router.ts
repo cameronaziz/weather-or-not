@@ -24,7 +24,8 @@ class RouterAgent extends Agent {
 
     const candidate = response.candidates?.[0];
     const part = candidate?.content?.parts?.[0];
-    const classification = part?.text?.trim().toLowerCase() || 'error';
+    const classification =
+      part?.text?.trim().toLowerCase() || 'location_description';
 
     await this.memory.recordMessage('model', `Router: ${classification}`, true);
 

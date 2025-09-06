@@ -39,7 +39,7 @@ fastify.register(cors, {
 fastify.register(multipart);
 fastify.register(cookie);
 
-fastify.get('/register', async (request, reply) => {
+fastify.get('/api/register', async (request, reply) => {
   if (request.cookies.userId) {
     const userId = await storage.createUser(request.cookies.userId);
     reply.send({
@@ -62,7 +62,7 @@ fastify.get('/register', async (request, reply) => {
   }
 });
 
-fastify.get('/conversation', async (request, reply) => {
+fastify.get('/api/conversation', async (request, reply) => {
   const { userId } = request.cookies;
   const { convoId } = request.query as { convoId?: string };
 
@@ -87,7 +87,7 @@ fastify.get('/conversation', async (request, reply) => {
   }
 });
 
-fastify.options('/prompt', async (request, reply) => {
+fastify.options('/api/prompt', async (request, reply) => {
   reply.headers({
     'Access-Control-Allow-Origin':
       process.env.NODE_ENV === 'production'
@@ -100,7 +100,7 @@ fastify.options('/prompt', async (request, reply) => {
   reply.code(200).send();
 });
 
-fastify.post('/prompt', async (request, reply) => {
+fastify.post('/api/prompt', async (request, reply) => {
   const requestBody = await processRequest(request);
 
   if (!requestBody.userId) {
@@ -134,28 +134,43 @@ fastify.post('/prompt', async (request, reply) => {
   }
 });
 
-const start = async () => {
-  const port = Number(process.env.VITE_SERVER_PORT);
-  try {
-    if (isNaN(port)) {
-      throw new Error(`VITE_SERVER_PORT is not a number`);
-    }
-    await fastify.listen({ port, host: '0.0.0.0' });
-    console.log(`Server listening on http://localhost:${port}`);
-  } catch (err) {
-    console.error(err);
-    process.exit(1);
-  }
+// For Vercel serverless deployment
+export default async (req: any, res: any) => {
+  await fastify.ready();
+  fastify.server.emit('request', req, res);
 };
 
-process.on('SIGTERM', () => {
-  storage.close();
-  fastify.close();
-});
+// Also export as module.exports for CommonJS compatibility
+module.exports = async (req: any, res: any) => {
+  await fastify.ready();
+  fastify.server.emit('request', req, res);
+};
 
-process.on('SIGINT', () => {
-  storage.close();
-  fastify.close();
-});
+// For local development
+if (process.env.NODE_ENV !== 'production') {
+  const start = async () => {
+    const port = Number(process.env.VITE_SERVER_PORT);
+    try {
+      if (isNaN(port)) {
+        throw new Error(`VITE_SERVER_PORT is not a number`);
+      }
+      await fastify.listen({ port, host: '0.0.0.0' });
+      console.log(`Server listening on http://localhost:${port}`);
+    } catch (err) {
+      console.error(err);
+      process.exit(1);
+    }
+  };
 
-start();
+  process.on('SIGTERM', () => {
+    storage.close();
+    fastify.close();
+  });
+
+  process.on('SIGINT', () => {
+    storage.close();
+    fastify.close();
+  });
+
+  start();
+}

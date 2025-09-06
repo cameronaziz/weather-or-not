@@ -1,6 +1,5 @@
 import { randomUUID } from 'crypto';
-import { existsSync, mkdirSync } from 'fs';
-import { Worker } from 'worker_threads';
+import { Pool } from 'pg';
 import { Message, MessageToStore, Role, StoredConversation } from '../types';
 
 type RawMessage = {
@@ -8,7 +7,7 @@ type RawMessage = {
   text: string;
   date_time: string;
   role: string;
-  internal: number;
+  internal: boolean;
 };
 
 type RawConversation = {
@@ -16,87 +15,123 @@ type RawConversation = {
   last_message_datetime: string;
 };
 
-const DATA_DIR = '../data';
-
 class Storage {
-  private worker: Worker;
-  private pendingOperations: Map<
-    string,
-    { resolve: Function; reject: Function }
-  > = new Map();
+  private pool: Pool;
+  private initialized: boolean = false;
+  private initPromise: Promise<void> | null = null;
 
   constructor() {
-    // Ensure data directory exists
-    if (!existsSync(DATA_DIR)) {
-      mkdirSync(DATA_DIR, { recursive: true });
-    }
-
-    this.worker = new Worker('./src/storage/worker.mjs');
-
-    this.worker.on('message', ({ id, result, error }) => {
-      const pending = this.pendingOperations.get(id);
-      if (pending) {
-        this.pendingOperations.delete(id);
-        if (error) {
-          pending.reject(new Error(error));
-        } else {
-          pending.resolve(result);
-        }
-      }
+    this.pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
     });
+  }
 
-    this.callWorker('init', [DATA_DIR]);
+  private async ensureInitialized(): Promise<void> {
+    if (this.initialized) return;
+    if (this.initPromise) return this.initPromise;
+    
+    this.initPromise = this.initTables();
+    await this.initPromise;
+    this.initialized = true;
+  }
+
+  private async initTables(): Promise<void> {
+    try {
+      await this.pool.query(`
+        CREATE TABLE IF NOT EXISTS users (
+          id TEXT PRIMARY KEY
+        );
+      `);
+
+      await this.pool.query(`
+        CREATE TABLE IF NOT EXISTS conversations (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          last_message_datetime TEXT NOT NULL,
+          FOREIGN KEY (user_id) REFERENCES users (id)
+        );
+      `);
+
+      await this.pool.query(`
+        CREATE TABLE IF NOT EXISTS messages (
+          id TEXT PRIMARY KEY,
+          conversation_id TEXT NOT NULL,
+          text TEXT NOT NULL,
+          role TEXT NOT NULL,
+          date_time TEXT NOT NULL,
+          internal BOOLEAN DEFAULT FALSE,
+          FOREIGN KEY (conversation_id) REFERENCES conversations (id)
+        );
+      `);
+    } catch (error) {
+      console.error('Error initializing database tables:', error);
+    }
   }
 
   async createUser(userId?: string): Promise<string> {
-    const id = userId ?? crypto.randomUUID();
-    await this.callWorker('insertUser', [id]);
-    return id;
+    await this.ensureInitialized();
+    const id = userId ?? randomUUID();
+    
+    try {
+      await this.pool.query('INSERT INTO users (id) VALUES ($1) ON CONFLICT (id) DO NOTHING', [id]);
+      return id;
+    } catch (error) {
+      console.error('Error creating user:', error);
+      throw error;
+    }
   }
 
   async verifyUser(userId: string): Promise<string> {
-    const userExists = await this.callWorker('selectUser', [userId]);
+    await this.ensureInitialized();
+    try {
+      const result = await this.pool.query('SELECT id FROM users WHERE id = $1', [userId]);
 
-    if (userExists) {
-      return userId;
+      if (result.rows.length > 0) {
+        return userId;
+      }
+
+      const newUserId = randomUUID();
+      await this.pool.query('INSERT INTO users (id) VALUES ($1)', [newUserId]);
+      return newUserId;
+    } catch (error) {
+      console.error('Error verifying user:', error);
+      throw error;
     }
-
-    const newUserId = randomUUID();
-    await this.callWorker('insertUser', [newUserId]);
-    return newUserId;
   }
 
-  async getHistory(
-    userId: string
-  ): Promise<Record<string, StoredConversation>> {
+  async getHistory(userId: string): Promise<Record<string, StoredConversation>> {
+    await this.ensureInitialized();
     await this.ensureUser(userId);
 
-    const conversations = (await this.callWorker('selectConversations', [
-      userId,
-    ])) as RawConversation[];
+    try {
+      const convResult = await this.pool.query(
+        'SELECT id, last_message_datetime FROM conversations WHERE user_id = $1',
+        [userId]
+      );
 
-    const result: Record<string, StoredConversation> = {};
+      const result: Record<string, StoredConversation> = {};
 
-    // Ensure conversations is an array before iterating
-    if (!Array.isArray(conversations)) {
+      for (const conv of convResult.rows) {
+        const msgResult = await this.pool.query(
+          'SELECT id, text, date_time, role, internal FROM messages WHERE conversation_id = $1 ORDER BY date_time ASC',
+          [conv.id]
+        );
+
+        const messages = this.transformRawMessages(msgResult.rows);
+
+        result[conv.id] = {
+          convoId: conv.id,
+          lastMessageDateTime: conv.last_message_datetime,
+          messages: messages,
+        };
+      }
+
       return result;
+    } catch (error) {
+      console.error('Error getting history:', error);
+      throw error;
     }
-
-    for (const conv of conversations) {
-      const rawMessages = (await this.callWorker('selectMessages', [
-        conv.id,
-      ])) as RawMessage[];
-
-      const messages = this.transformRawMessages(rawMessages);
-
-      result[conv.id] = {
-        convoId: conv.id,
-        lastMessageDateTime: conv.last_message_datetime,
-        messages: messages,
-      };
-    }
-
-    return result;
   }
 
   async getFullConversation(
@@ -104,40 +139,48 @@ class Storage {
     convoId: string,
     includeInternal: boolean = true
   ): Promise<StoredConversation> {
+    await this.ensureInitialized();
     const key = convoId || 'default';
-
     await this.ensureUser(userId);
 
-    const conversation = (await this.callWorker('selectConversation', [
-      key,
-      userId,
-    ])) as { id: string; last_message_datetime: string } | undefined;
+    try {
+      const convResult = await this.pool.query(
+        'SELECT id, last_message_datetime FROM conversations WHERE id = $1 AND user_id = $2',
+        [key, userId]
+      );
 
-    if (!conversation) {
-      const now = new Date().toISOString();
-      await this.ensureConversation(key, userId, now);
+      if (convResult.rows.length === 0) {
+        const now = new Date().toISOString();
+        await this.ensureConversation(key, userId, now);
+
+        return {
+          convoId: key,
+          lastMessageDateTime: now,
+          messages: [],
+        };
+      }
+
+      const conversation = convResult.rows[0];
+
+      const msgResult = await this.pool.query(
+        'SELECT id, text, date_time, role, internal FROM messages WHERE conversation_id = $1 ORDER BY date_time ASC',
+        [key]
+      );
+
+      const messages = this.transformRawMessages(msgResult.rows);
+      const filteredMessages = includeInternal
+        ? messages
+        : messages.filter((msg) => !msg.internal);
 
       return {
         convoId: key,
-        lastMessageDateTime: now,
-        messages: [],
+        lastMessageDateTime: conversation.last_message_datetime,
+        messages: filteredMessages,
       };
+    } catch (error) {
+      console.error('Error getting full conversation:', error);
+      throw error;
     }
-
-    const rawMessages = (await this.callWorker('selectMessages', [
-      key,
-    ])) as RawMessage[];
-
-    const messages = this.transformRawMessages(rawMessages);
-    const filteredMessages = includeInternal
-      ? messages
-      : messages.filter((msg) => !msg.internal);
-
-    return {
-      convoId: key,
-      lastMessageDateTime: conversation.last_message_datetime,
-      messages: filteredMessages,
-    };
   }
 
   async getConversation(userId: string, convoId: string): Promise<Message[]> {
@@ -145,10 +188,7 @@ class Storage {
     return conversation.messages;
   }
 
-  async getPublicConversation(
-    userId: string,
-    convoId: string
-  ): Promise<Message[]> {
+  async getPublicConversation(userId: string, convoId: string): Promise<Message[]> {
     const conversation = await this.getFullConversation(userId, convoId, false);
     return conversation.messages;
   }
@@ -158,36 +198,42 @@ class Storage {
     convoId: string,
     message: MessageToStore
   ): Promise<void> {
+    await this.ensureInitialized();
     const key = convoId || 'default';
     await this.ensureUser(userId);
-
     await this.ensureConversation(key, userId, message.dateTime);
 
-    await this.callWorker('insertMessage', [
-      key,
-      message.text,
-      message.role,
-      message.dateTime,
-      message.internal,
-    ]);
+    try {
+      const messageId = randomUUID();
+      
+      await this.pool.query(
+        'INSERT INTO messages (id, conversation_id, text, role, date_time, internal) VALUES ($1, $2, $3, $4, $5, $6)',
+        [messageId, key, JSON.stringify(message.text), message.role, message.dateTime, message.internal]
+      );
 
-    await this.callWorker('updateConversationTimestamp', [
-      message.dateTime,
-      key,
-      userId,
-    ]);
+      await this.pool.query(
+        'UPDATE conversations SET last_message_datetime = $1 WHERE id = $2 AND user_id = $3',
+        [message.dateTime, key, userId]
+      );
+    } catch (error) {
+      console.error('Error adding message:', error);
+      throw error;
+    }
   }
 
   async close(): Promise<void> {
-    await this.worker.terminate();
+    await this.pool.end();
   }
 
-  private callWorker(method: string, args: any[]): Promise<any> {
-    return new Promise((resolve, reject) => {
-      const id = randomUUID();
-      this.pendingOperations.set(id, { resolve, reject });
-      this.worker.postMessage({ id, method, args });
-    });
+  async getAllUsers(): Promise<string[]> {
+    await this.ensureInitialized();
+    try {
+      const result = await this.pool.query('SELECT id FROM users');
+      return result.rows.map(row => row.id);
+    } catch (error) {
+      console.error('Error getting all users:', error);
+      throw error;
+    }
   }
 
   private transformRawMessages(rawMessages: RawMessage[]): Message[] {
@@ -197,7 +243,7 @@ class Storage {
         text: JSON.parse(msg.text),
         dateTime: msg.date_time,
         role: msg.role as Role,
-        internal: Boolean(msg.internal),
+        internal: msg.internal,
       })
     );
   }
@@ -207,24 +253,34 @@ class Storage {
     userId: string,
     timestamp: string
   ): Promise<void> {
-    const conversationExists = await this.callWorker('selectConversation', [
-      conversationId,
-      userId,
-    ]);
+    try {
+      const result = await this.pool.query(
+        'SELECT id FROM conversations WHERE id = $1 AND user_id = $2',
+        [conversationId, userId]
+      );
 
-    if (!conversationExists) {
-      await this.callWorker('insertConversation', [
-        conversationId,
-        userId,
-        timestamp,
-      ]);
+      if (result.rows.length === 0) {
+        await this.pool.query(
+          'INSERT INTO conversations (id, user_id, last_message_datetime) VALUES ($1, $2, $3)',
+          [conversationId, userId, timestamp]
+        );
+      }
+    } catch (error) {
+      console.error('Error ensuring conversation:', error);
+      throw error;
     }
   }
 
   private async ensureUser(userId: string): Promise<void> {
-    const userExists = await this.callWorker('selectUser', [userId]);
-    if (!userExists) {
-      await this.callWorker('insertUser', [userId]);
+    try {
+      const result = await this.pool.query('SELECT id FROM users WHERE id = $1', [userId]);
+      
+      if (result.rows.length === 0) {
+        await this.pool.query('INSERT INTO users (id) VALUES ($1)', [userId]);
+      }
+    } catch (error) {
+      console.error('Error ensuring user:', error);
+      throw error;
     }
   }
 }
