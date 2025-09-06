@@ -36,7 +36,7 @@ class Memory {
     this.initialized = true;
   }
 
-  public async recordMessage(role: Role, input: string | Part): Promise<void> {
+  public async recordMessage(role: Role, input: string | Part, internal?: boolean): Promise<void> {
     await this.initialize();
 
     const dateTime = new Date().toISOString();
@@ -45,14 +45,17 @@ class Memory {
       role,
       text: JSON.stringify(part),
       dateTime,
+      internal,
     };
 
     await this.storage.addMessage(this.userId, this.convoId, messageToStore);
 
     this.conversation.push({
+      id: crypto.randomUUID(),
       role,
       text: part,
       dateTime,
+      internal,
     });
   }
 
@@ -65,6 +68,20 @@ class Memory {
         parts: [message.text],
       })
     );
+  }
+
+  public async getConversationForRouter(): Promise<Content[]> {
+    await this.initialize();
+
+    // Filter out internal messages for router classification
+    return this.conversation
+      .filter(message => !message.internal)
+      .map(
+        (message): Content => ({
+          role: message.role,
+          parts: [message.text],
+        })
+      );
   }
 
   public async getHistory(last: number): Promise<StoredConversation[]> {

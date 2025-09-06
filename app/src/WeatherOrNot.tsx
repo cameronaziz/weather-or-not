@@ -15,16 +15,16 @@ const WeatherOrNot: FC = () => {
   const hasMessages = messages.length > 0
 
   return (
-    <div className={clsx("relative h-dvh transition-colors duration-500 ease-in-out px-[20vw]", {
+    <div className={clsx("relative h-dvh transition-colors duration-500 ease-in-out px-4 sm:px-8 md:px-[20vw]", {
       'bg-purple-500': isConvoMode
     })}>
       <div className={clsx("transition-all duration-700 ease-in-out", {
-        "flex flex-col items-center justify-center h-dvh gap-12": !hasMessages,
+        "flex flex-col items-center justify-center h-dvh gap-8 sm:gap-12": !hasMessages,
       })}>
         <Header />
         <div className={clsx("mx-auto max-w-xl transition-opacity duration-100 delay-300 ease-in-out", {
           "opacity-0": !hasMessages,
-          "pt-[30vh] pb-[20vh] h-dvh opacity-100 overflow-hidden": hasMessages
+          "pt-[25vh] sm:pt-[30vh] pb-[15vh] sm:pb-[20vh] h-dvh opacity-100 overflow-hidden": hasMessages
         })}>
           <div className="h-full flex flex-col">
             <div className="flex-1 overflow-y-auto">

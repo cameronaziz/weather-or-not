@@ -27,11 +27,12 @@ abstract class Agent {
   }
 
   protected get config(): GenerateContentConfig {
+    const text = `Today is ${new Date().toDateString()}\n${this.systemPrompt}`;
     return {
       systemInstruction: {
         parts: [
           {
-            text: this.systemPrompt,
+            text,
           },
         ],
       },

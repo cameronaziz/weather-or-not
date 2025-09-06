@@ -5,16 +5,18 @@ export type Role = 'model' | 'user';
 export type Route = 'direct_weather' | 'location_description' | 'error';
 
 export type Message = {
-  id: number;
+  id: string;
   text: Part;
   dateTime: string;
   role: Role;
+  internal?: boolean;
 };
 
 export type MessageToStore = {
   text: string;
   dateTime: string;
   role: Role;
+  internal?: boolean;
 };
 
 export type RecordFunctionCall = {

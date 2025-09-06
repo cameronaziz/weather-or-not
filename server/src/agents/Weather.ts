@@ -31,7 +31,9 @@ class WeatherAgent extends Agent {
     response: GenerateContentResponse
   ): Promise<LocationResult> {
     const candidate = response.candidates?.[0];
-    const functionCall = candidate?.content?.parts?.[0]?.functionCall;
+    const parts = candidate?.content?.parts || [];
+    const functionCall = parts.find((part) => part.functionCall)?.functionCall;
+
 
     if (functionCall) {
       await this.memory.recordMessage('model', {
@@ -81,6 +83,9 @@ class WeatherAgent extends Agent {
           longitude: number;
           name: string;
         };
+        await this.memory.recordMessage('model', {
+          text: message,
+        });
         const weather = await getWeather({
           latitude,
           longitude,
@@ -106,7 +111,7 @@ class WeatherAgent extends Agent {
         const { question } = functionCall.args as {
           question: string;
         };
-        
+
         await this.memory.recordMessage('user', {
           functionResponse: {
             name: functionCall?.name,
@@ -115,10 +120,10 @@ class WeatherAgent extends Agent {
             },
           },
         });
-        
+
         // Record the clarification question in memory so it's included in subsequent conversations
         await this.memory.recordMessage('model', question);
-        
+
         return {
           action: 'followup',
           convoId: this.memory.convoId,

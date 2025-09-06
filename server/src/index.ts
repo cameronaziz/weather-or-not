@@ -72,18 +72,13 @@ fastify.get('/conversation', async (request, reply) => {
   }
 
   try {
-    const conversation = await storage.getConversation(userId, convoId);
+    const conversation = await storage.getPublicConversation(userId, convoId);
     const messages = conversation
-      .filter((message) => {
-        if (message.text.text) {
-          return true;
-        }
-        return message.text.functionCall?.name === 'confirm_location'; // dirty
-      })
+      .filter((message) => message.text.text)
       .map((message) => ({
-        id: message.id.toString(),
+        id: message.id,
         role: message.role,
-        text: message.text.text ?? message.text.functionCall?.args?.message,
+        text: message.text.text,
       }));
     reply.send({ messages });
   } catch (error) {

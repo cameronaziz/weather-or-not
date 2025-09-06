@@ -8,6 +8,7 @@ type RawMessage = {
   text: string;
   date_time: string;
   role: string;
+  internal: number;
 };
 
 type RawConversation = {
@@ -100,7 +101,8 @@ class Storage {
 
   async getFullConversation(
     userId: string,
-    convoId: string
+    convoId: string,
+    includeInternal: boolean = true
   ): Promise<StoredConversation> {
     const key = convoId || 'default';
 
@@ -127,16 +129,22 @@ class Storage {
     ])) as RawMessage[];
 
     const messages = this.transformRawMessages(rawMessages);
+    const filteredMessages = includeInternal ? messages : messages.filter(msg => !msg.internal);
 
     return {
       convoId: key,
       lastMessageDateTime: conversation.last_message_datetime,
-      messages: messages,
+      messages: filteredMessages,
     };
   }
 
   async getConversation(userId: string, convoId: string): Promise<Message[]> {
     const conversation = await this.getFullConversation(userId, convoId);
+    return conversation.messages;
+  }
+
+  async getPublicConversation(userId: string, convoId: string): Promise<Message[]> {
+    const conversation = await this.getFullConversation(userId, convoId, false);
     return conversation.messages;
   }
 
@@ -155,6 +163,7 @@ class Storage {
       message.text,
       message.role,
       message.dateTime,
+      message.internal,
     ]);
 
     await this.callWorker('updateConversationTimestamp', [
@@ -183,6 +192,7 @@ class Storage {
         text: JSON.parse(msg.text),
         dateTime: msg.date_time,
         role: msg.role as Role,
+        internal: Boolean(msg.internal),
       })
     );
   }

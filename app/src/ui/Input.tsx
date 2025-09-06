@@ -2,6 +2,30 @@ import clsx from "clsx"
 import { useCallback, useContext, useEffect, useRef, type ChangeEvent, type FC } from "react"
 import Convo from "../context/convo"
 import useSendPrompt from "../hooks/useSendPrompt"
+import { getURLParam, setURLParam } from "../lib/urlParams"
+
+const NewConvo: FC = () => {
+  const { set } = useContext(Convo.Context)
+  const isConvo = !!getURLParam('convoId')
+
+  const onClick = useCallback(() => {
+    setURLParam('convoId')
+    set({
+      messages: [],
+      isConvoMode: false
+    })
+  }, [set])
+
+  if (!isConvo) {
+    return null
+  }
+
+  return (
+    <div className="absolute left-1/2 mt-1 -translate-x-1/2 translate-y-full">
+      <button onClick={onClick} className="btn btn-ghost">New Conversation</button>
+    </div>
+  )
+}
 
 const Input: FC = () => {
   const [loading, sendPrompt] = useSendPrompt()
@@ -37,7 +61,7 @@ const Input: FC = () => {
     return () => {
       window.removeEventListener('keypress', onKeyPress)
     }
-  }, [onSubmit])
+  }, [focus, onSubmit])
 
   const onChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     const { value } = event.target
@@ -45,9 +69,10 @@ const Input: FC = () => {
   }, [set])
 
   return (
-    <div className={clsx("fixed left-1/2 -translate-x-1/2 flex z-10 min-w-[40vw] transition-all duration-700 ease-in-out", {
-      "bottom-[40vh]": !hasMessages,
-      "bottom-[10vh]": hasMessages
+    <div className={clsx("fixed left-1/2 -translate-x-1/2 rounded-lg flex z-10 w-[90vw] sm:w-[80vw] md:min-w-[40vw] max-w-2xl transition-all duration-700 ease-in-out", {
+      "bottom-[35vh] sm:bottom-[40vh]": !hasMessages,
+      "bottom-[8vh] sm:bottom-[10vh]": hasMessages,
+      'border border-solid border-blue-400': !isConvoMode,
     })}>
       <div className="w-full">
         <label
@@ -63,33 +88,26 @@ const Input: FC = () => {
           onChange={onChange}
           value={input}
           disabled={loading}
-          className={clsx('py-2.5 pl-4 px-16 bg-white focus:outline-hidden block w-full rounded-lg transition-colors duration-300 ease-in-out', {
+          className={clsx('py-3 sm:py-2.5 pl-4 pr-16 bg-white focus:outline-hidden block w-full rounded-lg transition-colors duration-300 ease-in-out text-base sm:text-sm', {
             'border-transparent': isConvoMode,
-            'border border-solid border-blue-400': !isConvoMode,
             'bg-gray-300': loading
           })}
-          placeholder="Search Weather"
+          placeholder={hasMessages ? 'Send' : 'Search Weather'}
         />
       </div>
       <button
-        disabled={loading}
+        disabled={loading || input.trim().length === 0}
         onClick={onSubmit}
-        className={clsx("absolute right-0 size-11 inline-flex focus:outline-hidden justify-center items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent disabled:opacity-50 disabled:pointer-events-none transition-colors duration-300 ease-in-out", {
-          'bg-blue-600 text-white h-full hover:bg-blue-700 focus:bg-blue-700': !isConvoMode,
+        className={clsx("h-full absolute right-0 w-fit p-3 inline-flex focus:outline-hidden justify-center items-center text-sm font-medium rounded-lg border border-transparent disabled:opacity-50 disabled:pointer-events-none transition-colors duration-300 ease-in-out", {
+          'bg-blue-600 text-white hover:bg-blue-700 focus:bg-blue-700': !isConvoMode,
           'bg-orange-600 text-black hover:bg-orange-700 focus:bg-orange-700': isConvoMode,
         })}
       >
-        {loading ?
-          <svg className="size-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-          </svg> :
-          <svg className="shrink-0 size-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.3-4.3" />
-          </svg>
-        }
+        <span className={clsx({
+          'loading loading-spinner': loading
+        })}>{loading ? '' : '⇪'}</span>
       </button>
+      <NewConvo />
     </div>
   )
 }

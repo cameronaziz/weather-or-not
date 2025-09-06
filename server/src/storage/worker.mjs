@@ -34,10 +34,18 @@ const initDatabase = (dataDir) => {
         text TEXT NOT NULL,
         role TEXT NOT NULL CHECK (role IN ('user', 'model')),
         date_time DATETIME NOT NULL,
+        internal INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
       )
     `);
+
+  // Migration: Add internal column if it doesn't exist
+  try {
+    db.exec('ALTER TABLE messages ADD COLUMN internal INTEGER DEFAULT 0');
+  } catch (error) {
+    // Column already exists, ignore error
+  }
 
   statements = {
     insertUser: db.prepare('INSERT OR IGNORE INTO users (id) VALUES (?)'),
@@ -49,10 +57,10 @@ const initDatabase = (dataDir) => {
       'INSERT OR IGNORE INTO conversations (id, user_id, last_message_datetime) VALUES (?, ?, ?)'
     ),
     selectMessages: db.prepare(
-      'SELECT id, text, date_time, role FROM messages WHERE conversation_id = ? ORDER BY date_time ASC'
+      'SELECT id, text, date_time, role, internal FROM messages WHERE conversation_id = ? ORDER BY date_time ASC'
     ),
     insertMessage: db.prepare(
-      'INSERT INTO messages (conversation_id, text, role, date_time) VALUES (?, ?, ?, ?)'
+      'INSERT INTO messages (conversation_id, text, role, date_time, internal) VALUES (?, ?, ?, ?, ?)'
     ),
     updateConversationTimestamp: db.prepare(
       'UPDATE conversations SET last_message_datetime = ? WHERE id = ? AND user_id = ?'
@@ -88,7 +96,7 @@ parentPort.on('message', ({ id, method, args }) => {
         result = statements.selectMessages.all(args[0]);
         break;
       case 'insertMessage':
-        result = statements.insertMessage.run(args[0], args[1], args[2], args[3]);
+        result = statements.insertMessage.run(args[0], args[1], args[2], args[3], args[4] ? 1 : 0);
         break;
       case 'updateConversationTimestamp':
         result = statements.updateConversationTimestamp.run(args[0], args[1], args[2]);
