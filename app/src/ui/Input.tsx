@@ -88,7 +88,7 @@ const Input: FC = () => {
           onChange={onChange}
           value={input}
           disabled={loading}
-          className={clsx('py-3 sm:py-2.5 pl-4 pr-16 bg-white focus:outline-hidden block w-full rounded-lg transition-colors duration-300 ease-in-out text-base sm:text-sm', {
+          className={clsx('py-3 sm:py-2.5 pl-4 pr-16 bg-white dark:bg-gray-600 focus:outline-hidden block w-full rounded-lg transition-colors duration-300 ease-in-out text-base sm:text-sm', {
             'border-transparent': isConvoMode,
             'bg-gray-300': loading
           })}
