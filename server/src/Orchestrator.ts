@@ -53,7 +53,6 @@ class Orchestrator {
           yield completeResponse;
         }
         break;
-      case 'error':
       default:
         break;
     }
