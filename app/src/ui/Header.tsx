@@ -27,7 +27,7 @@ const Flair: FC = () => {
 
 const Title: FC = () => {
   const { isConvoMode } = useContext(Convo.Context)
-  const subTitle = isConvoMode ? 'Oh, you wanna be cryptic? Two can play this game! 🕵️‍♂️' : 'Natural language processor for attire recomentations.'
+  const subTitle = isConvoMode ? 'Oh, you wanna be cryptic? Two can play this game! 🕵️‍♂️' : 'Your AI-powered style forecaster for anywhere, any event, any climate'
 
   return (
     <div className='text-center px-4'>

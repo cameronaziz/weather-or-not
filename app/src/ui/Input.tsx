@@ -6,11 +6,11 @@ import useViewportHeight from "../hooks/useViewportHeight"
 import { getURLParam, setURLParam } from "../lib/urlParams"
 
 const placeholders = [
-  'Help the detective',
-  'Challenge him some more',
-  'Make him work',
-  'Another clue?',
-  'He\'s waiting',
+  'I\'m good, but I\'m not THAT good.',
+  'I\'m waiting to shock you',
+  'Seriously? Try being more specific this time...',
+  'To be a poet is a condition, not a profession.',
+  'Riddles are cool'
 ]
 
 const NewConvo: FC = () => {
@@ -82,8 +82,8 @@ const Input: FC = () => {
     if (isConvoMode) {
       return placeholders[Math.floor(Math.random() * placeholders.length)]
     }
-    return hasMessages ? 'Send' : 'Search Weather'
-  }, [hasMessages, isConvoMode])
+    return messages.length > 0 ? 'What else can I help you wear?' : 'Try: \'Paris\', \'desert vibes\', or \'where the Olympics are\''
+  }, [isConvoMode, messages.length])
 
   const positionClasses = useMemo(() => ({
     "bottom-4 sm:bottom-6 md:bottom-8 mb-safe": hasMessages,
@@ -101,7 +101,7 @@ const Input: FC = () => {
           htmlFor="prompt-input"
           className="block text-sm text-gray-700 font-medium dark:text-white"
         >
-          <span className="sr-only">Search Weather</span>
+          <span className="sr-only">{placeholder}</span>
         </label>
         <input
           ref={ref}
@@ -112,7 +112,7 @@ const Input: FC = () => {
           disabled={loading}
           className={clsx('py-3 sm:py-2.5 md:py-3 pl-3 sm:pl-4 pr-14 sm:pr-16 bg-white dark:bg-gray-600 focus:outline-hidden block w-full rounded-lg transition-colors duration-300 ease-in-out text-sm sm:text-base min-h-[44px] touch-manipulation', {
             'border-transparent': isConvoMode,
-            'bg-gray-300': loading
+            'bg-gray-300 text-gray-500': loading,
           })}
           placeholder={placeholder}
         />
