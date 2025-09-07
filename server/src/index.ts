@@ -2,22 +2,10 @@ import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import Fastify from 'fastify';
-import processRequest, { getHostname } from './lib/processRequest';
-import Orchestrator from './Orchestrator';
+import Conversation from './handlers/Conversation';
+import Prompt from './handlers/Prompt';
+import Register from './handlers/Register';
 import Storage from './storage/Storage';
-
-const STREAM_HEADERS = {
-  'Content-Type': 'text/event-stream',
-  'Cache-Control': 'no-cache',
-  Connection: 'keep-alive',
-  'Access-Control-Allow-Origin':
-    process.env.NODE_ENV === 'production'
-      ? 'https://weatherornot.cameronaziz.dev'
-      : 'http://localhost:5173',
-  'Access-Control-Allow-Credentials': 'true',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
 
 const storage = new Storage();
 
@@ -39,113 +27,20 @@ fastify.register(cors, {
 fastify.register(multipart);
 fastify.register(cookie);
 
-fastify.get('/api/register', async (request, reply) => {
-  if (request.cookies.userId) {
-    const userId = await storage.createUser(
-      getHostname(request),
-      request.cookies.userId
-    );
-    reply.send({
-      userId,
-      isNew: false,
-    });
-  } else {
-    const userId = await storage.createUser(getHostname(request));
-    reply.setCookie('userId', userId, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'none',
-      partitioned: true,
-      maxAge: 365 * 24 * 60 * 60 * 1000,
-    });
-    reply.send({
-      userId,
-      isNew: true,
-    });
-  }
-});
+fastify.get('/api/register', Register.get(storage));
+fastify.get('/api/conversation', Conversation.get(storage));
+fastify.post('/api/conversation', Conversation.post(storage));
+fastify.options('/api/prompt', Prompt.options(storage));
+fastify.post('/api/prompt', Prompt.post(storage));
 
-fastify.get('/api/conversation', async (request, reply) => {
-  const { userId } = request.cookies;
-  const { convoId } = request.query as { convoId?: string };
-
-  if (!convoId || !userId) {
-    reply.code(400).send({ message: 'Missing convoId parameter' });
-    return;
-  }
-
-  try {
-    const frontendMessages = await storage.getFrontendMessages(userId, convoId);
-    const messages = frontendMessages.map((message) => ({
-      id: message.id,
-      role: message.role,
-      text: message.input,
-    }));
-    reply.send({ messages });
-  } catch (error) {
-    console.error('Error fetching conversation:', error);
-    reply.code(404).send({ message: 'Conversation not found' });
-  }
-});
-
-fastify.options('/api/prompt', async (request, reply) => {
-  reply.headers({
-    'Access-Control-Allow-Origin':
-      process.env.NODE_ENV === 'production'
-        ? 'https://weatherornot.cameronaziz.dev'
-        : 'http://localhost:5173',
-    'Access-Control-Allow-Credentials': 'true',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  });
-  reply.code(200).send();
-});
-
-fastify.post('/api/prompt', async (request, reply) => {
-  const requestBody = await processRequest(request);
-
-  if (!requestBody.userId) {
-    const userId = await storage.createUser(getHostname(request));
-    requestBody.userId = userId;
-  }
-
-  if (!requestBody.prompt) {
-    reply.code(400).send({ message: 'Missing required fields' });
-    return;
-  }
-
-  reply.hijack();
-
-  // Set CORS and streaming headers on the raw response
-  reply.raw.writeHead(200, STREAM_HEADERS);
-
-  try {
-    const orchestrator = new Orchestrator(requestBody, storage);
-    const stream = orchestrator.run(requestBody.prompt, requestBody.image);
-    for await (const data of stream) {
-      reply.raw.write(`data: ${JSON.stringify(data)}\n\n`);
-    }
-    reply.raw.end();
-  } catch (error) {
-    console.error('Stream error:', error);
-    reply.raw.write(
-      `data: ${JSON.stringify({ error: 'Processing failed' })}\n\n`
-    );
-    reply.raw.end();
-  }
-});
-
-// For Vercel serverless deployment
-export default async (req: any, res: any) => {
+const run = async (req: any, res: any) => {
   await fastify.ready();
   fastify.server.emit('request', req, res);
 };
 
-// Also export as module.exports for CommonJS compatibility
-module.exports = async (req: any, res: any) => {
-  await fastify.ready();
-  fastify.server.emit('request', req, res);
-};
+export default (req: any, res: any) => run(req, res);
+
+module.exports = (req: any, res: any) => run(req, res);
 
 // For local development
 if (process.env.NODE_ENV !== 'production') {

@@ -1,5 +1,5 @@
 type GET_ENDPOINT = 'register' | 'conversation';
-type POST_ENDPOINT = 'prompt';
+type POST_ENDPOINT = 'prompt' | 'conversation';
 
 class API {
   private static createFormData(input: Record<string, null | string | Blob>) {
@@ -13,13 +13,12 @@ class API {
   }
 
   private static basePath(endpoint: GET_ENDPOINT | POST_ENDPOINT) {
-    // In production (including vercel --prod), use relative API routes
     if (import.meta.env.PROD) {
       return `/api/${endpoint}`;
     }
-    // In development, use localhost with port
+
     const port = import.meta.env.VITE_SERVER_PORT;
-    return `http://localhost:${port}/${endpoint}`;
+    return `http://localhost:${port}/api/${endpoint}`;
   }
 
   private static path(
@@ -47,9 +46,25 @@ class API {
     return response.json() as Promise<T>;
   }
 
-  static async *post<T>(
-    input: Record<string, null | string | Blob>,
-    endpoint: POST_ENDPOINT
+  static async post<T>(
+    endpoint: POST_ENDPOINT,
+    input?: Record<string, null | string | Blob>
+  ) {
+    const path = API.path(endpoint);
+    const body = input ? API.createFormData(input) : undefined;
+
+    const response = await fetch(path, {
+      method: 'POST',
+      body,
+      credentials: 'include',
+    });
+
+    return response.json() as Promise<T>;
+  }
+
+  static async *postStream<T>(
+    endpoint: POST_ENDPOINT,
+    input: Record<string, null | string | Blob>
   ) {
     const path = API.path(endpoint);
     const body = API.createFormData(input);

@@ -63,6 +63,7 @@ export type Message = {
 
 export type ConvoContextBaseValue = {
   input: string;
+  isLoading: boolean;
   isConvoMode: boolean;
   confidence: number;
   messages: Message[];
@@ -110,3 +111,11 @@ export type RequestResult =
   | ResultGeneric<'complete', Attire>
   | ResultGeneric<'followup', Followup>
   | ResultGeneric<'location_confirmed', Location>;
+
+export type GetConversationResponse = {
+  messages: Message[];
+};
+
+export type CreateConversationResponse = {
+  convoId: string;
+};

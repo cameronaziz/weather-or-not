@@ -1,24 +1,20 @@
-import { useCallback, useContext, useState } from 'react';
+import { useCallback, useContext } from 'react';
 import API from '../api';
 import Convo from '../context/convo';
 import sanitizeUserInput from '../lib/sanitize';
 import { getURLParam, setURLParam } from '../lib/urlParams';
 import type { RequestResult } from '../types';
 
-type UseSendPrompt = () => [
-  isLoading: boolean,
-  sendPrompt: (prompt: string) => Promise<void>
-];
-
-const useSendPrompt: UseSendPrompt = () => {
-  const [isLoading, setIsLoading] = useState(false);
+const useSendPrompt = () => {
   const { set: setConvoContext, addMessage } = useContext(Convo.Context);
 
   const sendPrompt = useCallback(
     async (input: string) => {
       const prompt = sanitizeUserInput(input);
-      setIsLoading(true);
-      setConvoContext('input', '');
+      setConvoContext({
+        input: '',
+        isLoading: true,
+      });
 
       addMessage({
         role: 'user',
@@ -30,7 +26,7 @@ const useSendPrompt: UseSendPrompt = () => {
         convoId: getURLParam('convoId'),
         prompt,
       };
-      const stream = API.post<RequestResult>(payload, 'prompt');
+      const stream = API.postStream<RequestResult>('prompt', payload);
 
       for await (const response of stream) {
         switch (response.action) {
@@ -75,12 +71,12 @@ const useSendPrompt: UseSendPrompt = () => {
             break;
         }
       }
-      setIsLoading(false);
+      setConvoContext('isLoading', false);
     },
     [addMessage, setConvoContext]
   );
 
-  return [isLoading, sendPrompt];
+  return sendPrompt;
 };
 
 export default useSendPrompt;

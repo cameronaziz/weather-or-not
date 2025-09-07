@@ -80,6 +80,24 @@ class Storage {
     }
   }
 
+  async createConversation(userId: string): Promise<string> {
+    await this.ensureInitialized();
+    await this.ensureUser(userId);
+    const id = randomUUID();
+
+    try {
+      const now = new Date().toISOString();
+      await this.pool.query(
+        'INSERT INTO conversations (id, user_id, last_message_datetime, created_at) VALUES ($1, $2, $3, $4)',
+        [id, userId, now, now]
+      );
+      return id;
+    } catch (error) {
+      console.error('Error creating user:', error);
+      throw error;
+    }
+  }
+
   async verifyUser(userId: string): Promise<string> {
     await this.ensureInitialized();
     try {
@@ -259,32 +277,40 @@ class Storage {
     }
   }
 
-  async getFrontendMessages(
-    userId: string,
-    convoId: string
-  ): Promise<FrontendMessage[]> {
+  async getFrontendMessages(userId: string, convoId: string) {
     await this.ensureInitialized();
-    const key = convoId || 'default';
     await this.ensureUser(userId);
 
     try {
+      const isValidUser = this.isValidUser(userId, convoId);
+      if (!isValidUser) {
+        return [];
+      }
+
       const result = await this.pool.query(
         'SELECT id, input, role, date_time FROM frontend_messages WHERE conversation_id = $1 ORDER BY date_time ASC',
-        [key]
+        [convoId]
       );
 
-      return result.rows.map(
-        (row: RawFrontendMessage): FrontendMessage => ({
-          id: row.id,
-          role: row.role,
-          input: row.input,
-          dateTime: row.date_time,
-        })
-      );
+      return result.rows.map((row: RawFrontendMessage) => ({
+        id: row.id,
+        role: row.role,
+        text: row.input,
+        dateTime: row.date_time,
+      }));
     } catch (error) {
       console.error('Error getting frontend messages:', error);
       throw error;
     }
+  }
+
+  async isValidUser(userId: string, convoId: string) {
+    const convResult = await this.pool.query(
+      'SELECT id FROM conversations WHERE id = $1 AND user_id = $2',
+      [convoId, userId]
+    );
+
+    return convResult.rows.length > 0;
   }
 
   async close(): Promise<void> {

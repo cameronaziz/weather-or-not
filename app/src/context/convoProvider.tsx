@@ -10,6 +10,7 @@ const ConvoContextProvider: FC<ConvoContextProviderProps> = (props) => {
   const { children } = props
   const [messages, setMessages] = useState<Message[]>([])
   const [confidence, setConfidence] = useState<number>(0)
+  const [isLoading, setIsLoading] = useState<boolean>(false)
   const [isConvoMode, setIsConvoMode] = useState<boolean>(false)
   const [input, setInput] = useState<string>('')
 
@@ -26,13 +27,15 @@ const ConvoContextProvider: FC<ConvoContextProviderProps> = (props) => {
       if (typeof partial.isConvoMode !== 'undefined') {
         setIsConvoMode(partial.isConvoMode)
       }
+      if (typeof partial.isLoading !== 'undefined') {
+        setIsLoading(partial.isLoading)
+      }
       if (typeof partial.confidence !== 'undefined') {
         setConfidence(partial.confidence)
       }
       if (typeof partial.messages !== 'undefined') {
         setMessages(partial.messages)
       }
-
       if (typeof partial.input !== 'undefined') {
         setInput(partial.input)
       }
@@ -41,6 +44,9 @@ const ConvoContextProvider: FC<ConvoContextProviderProps> = (props) => {
       switch (key) {
         case 'isConvoMode':
           setIsConvoMode(value as boolean) // I dont like this
+          break
+        case 'isLoading':
+          setIsLoading(value as boolean) // I dont like this
           break
         case 'confidence':
           setConfidence(value as number) // I dont like this
@@ -60,11 +66,12 @@ const ConvoContextProvider: FC<ConvoContextProviderProps> = (props) => {
   const value = useMemo((): ConvoContextValue => ({
     messages,
     isConvoMode,
+    isLoading,
     addMessage,
     input,
     confidence,
     set,
-  }), [messages, input, isConvoMode, addMessage, confidence, set])
+  }), [messages, isConvoMode, isLoading, addMessage, input, confidence, set])
 
   return (
     <convoContext.Provider value={value}>

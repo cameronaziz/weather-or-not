@@ -1,9 +1,11 @@
 import clsx from "clsx"
 import { useCallback, useContext, useEffect, useMemo, useRef, type ChangeEvent, type FC } from "react"
+import API from "../api"
 import Convo from "../context/convo"
 import useSendPrompt from "../hooks/useSendPrompt"
 import useViewportHeight from "../hooks/useViewportHeight"
-import { getURLParam, setURLParam } from "../lib/urlParams"
+import { setURLParam } from "../lib/urlParams"
+import type { CreateConversationResponse } from "../types"
 
 const placeholders = [
   'I\'m good, but I\'m not THAT good.',
@@ -14,31 +16,34 @@ const placeholders = [
 ]
 
 const NewConvo: FC = () => {
-  const { set } = useContext(Convo.Context)
-  const isConvo = !!getURLParam('convoId')
+  const { set: setConvo, messages } = useContext(Convo.Context)
 
-  const onClick = useCallback(() => {
-    setURLParam('convoId')
-    set({
+
+  const onClick = useCallback(async () => {
+    setConvo({
+      isLoading: true,
       messages: [],
       isConvoMode: false
     })
-  }, [set])
+    const response = await API.post<CreateConversationResponse>('conversation');
+    setURLParam('convoId', response.convoId);
+    setConvo('isLoading', false)
+  }, [setConvo])
 
-  if (!isConvo) {
+  if (messages.length === 0) {
     return null
   }
 
   return (
     <div className="absolute left-1/2 mt-2 sm:mt-3 -translate-x-1/2 translate-y-full">
-      <button onClick={onClick} className="btn btn-ghost text-xs sm:text-sm px-3 py-2 min-h-[36px] h-auto touch-manipulation">New Conversation</button>
+      <button onClick={onClick} className="cursor-pointer hover:text-gray-700 text-xs sm:text-sm px-1 py-0.5 min-h-[36px] h-auto touch-manipulation">New Conversation</button>
     </div>
   )
 }
 
 const Input: FC = () => {
-  const [loading, sendPrompt] = useSendPrompt()
-  const { input, isConvoMode, messages, set } = useContext(Convo.Context)
+  const sendPrompt = useSendPrompt()
+  const { input, isConvoMode, messages, set, isLoading } = useContext(Convo.Context)
   const { isSmallHeight } = useViewportHeight()
   const hasMessages = messages.length > 0
   const ref = useRef<HTMLInputElement>(null)
@@ -52,11 +57,11 @@ const Input: FC = () => {
 
   const onSubmit = useCallback(async () => {
     const prompt = input.trim()
-    if (prompt.length > 0 && !loading) {
+    if (prompt.length > 0 && !isLoading) {
       await sendPrompt(input)
       focus()
     }
-  }, [input, focus, loading, sendPrompt])
+  }, [input, focus, isLoading, sendPrompt])
 
 
   useEffect(() => {
@@ -82,7 +87,7 @@ const Input: FC = () => {
     if (isConvoMode) {
       return placeholders[Math.floor(Math.random() * placeholders.length)]
     }
-    return messages.length > 0 ? 'What else can I help you wear?' : 'Try: \'Paris\', \'desert vibes\', or \'where the Olympics are\''
+    return messages.length > 0 ? 'What else can I help you wear?' : 'Try: \'Paris\' or \'where the Olympics are\''
   }, [isConvoMode, messages.length])
 
   const positionClasses = useMemo(() => ({
@@ -109,16 +114,16 @@ const Input: FC = () => {
           id="prompt-input"
           onChange={onChange}
           value={input}
-          disabled={loading}
+          disabled={isLoading}
           className={clsx('py-3 sm:py-2.5 md:py-3 pl-3 sm:pl-4 pr-14 sm:pr-16 bg-white dark:bg-gray-600 focus:outline-hidden block w-full rounded-lg transition-colors duration-300 ease-in-out text-sm sm:text-base min-h-[44px] touch-manipulation', {
             'border-transparent': isConvoMode,
-            'bg-gray-300 text-gray-500': loading,
+            'bg-gray-300 text-gray-500': isLoading,
           })}
           placeholder={placeholder}
         />
       </div>
       <button
-        disabled={loading || input.trim().length === 0}
+        disabled={isLoading || input.trim().length === 0}
         onClick={onSubmit}
         className={clsx("h-full absolute right-0 w-12 sm:w-fit p-2 sm:p-3 inline-flex focus:outline-hidden justify-center items-center text-sm font-medium rounded-lg border border-transparent disabled:opacity-50 disabled:pointer-events-none transition-colors duration-300 ease-in-out min-h-[44px] touch-manipulation", {
           'bg-blue-600 text-white hover:bg-blue-700 focus:bg-blue-700': !isConvoMode,
@@ -126,8 +131,8 @@ const Input: FC = () => {
         })}
       >
         <span className={clsx({
-          'loading loading-spinner': loading
-        })}>{loading ? '' : '⇪'}</span>
+          'loading loading-spinner': isLoading
+        })}>{isLoading ? '' : '⇪'}</span>
       </button>
       <NewConvo />
     </div>
