@@ -2,6 +2,7 @@ import clsx from "clsx"
 import { useCallback, useContext, useEffect, useMemo, useRef, type ChangeEvent, type FC } from "react"
 import Convo from "../context/convo"
 import useSendPrompt from "../hooks/useSendPrompt"
+import useViewportHeight from "../hooks/useViewportHeight"
 import { getURLParam, setURLParam } from "../lib/urlParams"
 
 const placeholders = [
@@ -29,8 +30,8 @@ const NewConvo: FC = () => {
   }
 
   return (
-    <div className="absolute left-1/2 mt-1 -translate-x-1/2 translate-y-full">
-      <button onClick={onClick} className="btn btn-ghost">New Conversation</button>
+    <div className="absolute left-1/2 mt-2 sm:mt-3 -translate-x-1/2 translate-y-full">
+      <button onClick={onClick} className="btn btn-ghost text-xs sm:text-sm px-3 py-2 min-h-[36px] h-auto touch-manipulation">New Conversation</button>
     </div>
   )
 }
@@ -38,6 +39,7 @@ const NewConvo: FC = () => {
 const Input: FC = () => {
   const [loading, sendPrompt] = useSendPrompt()
   const { input, isConvoMode, messages, set } = useContext(Convo.Context)
+  const { isSmallHeight } = useViewportHeight()
   const hasMessages = messages.length > 0
   const ref = useRef<HTMLInputElement>(null)
 
@@ -83,10 +85,15 @@ const Input: FC = () => {
     return hasMessages ? 'Send' : 'Search Weather'
   }, [hasMessages, isConvoMode])
 
+  const positionClasses = useMemo(() => ({
+    "bottom-4 sm:bottom-6 md:bottom-8 mb-safe": hasMessages,
+    "bottom-8 sm:bottom-12 md:bottom-16 mb-safe": !hasMessages && isSmallHeight,
+    "bottom-[20vh] xs:bottom-[25vh] sm:bottom-[30vh] md:bottom-[35vh] lg:bottom-[40vh]": !hasMessages && !isSmallHeight,
+  }), [hasMessages, isSmallHeight])
+
   return (
-    <div className={clsx("fixed left-1/2 -translate-x-1/2 rounded-lg flex z-10 w-[90vw] sm:w-[80vw] md:min-w-[40vw] max-w-2xl transition-all duration-700 ease-in-out", {
-      "bottom-[35vh] sm:bottom-[40vh]": !hasMessages,
-      "bottom-[8vh] sm:bottom-[10vh]": hasMessages,
+    <div className={clsx("fixed left-1/2 -translate-x-1/2 rounded-lg flex z-10 w-[95vw] xs:w-[90vw] sm:w-[80vw] md:w-[70vw] lg:min-w-[40vw] max-w-2xl transition-all duration-700 ease-in-out mx-3 sm:mx-0", {
+      ...positionClasses,
       'border border-solid border-blue-400': !isConvoMode,
     })}>
       <div className="w-full">
@@ -103,7 +110,7 @@ const Input: FC = () => {
           onChange={onChange}
           value={input}
           disabled={loading}
-          className={clsx('py-3 sm:py-2.5 pl-4 pr-16 bg-white dark:bg-gray-600 focus:outline-hidden block w-full rounded-lg transition-colors duration-300 ease-in-out text-base sm:text-sm', {
+          className={clsx('py-3 sm:py-2.5 md:py-3 pl-3 sm:pl-4 pr-14 sm:pr-16 bg-white dark:bg-gray-600 focus:outline-hidden block w-full rounded-lg transition-colors duration-300 ease-in-out text-sm sm:text-base min-h-[44px] touch-manipulation', {
             'border-transparent': isConvoMode,
             'bg-gray-300': loading
           })}
@@ -113,7 +120,7 @@ const Input: FC = () => {
       <button
         disabled={loading || input.trim().length === 0}
         onClick={onSubmit}
-        className={clsx("h-full absolute right-0 w-fit p-3 inline-flex focus:outline-hidden justify-center items-center text-sm font-medium rounded-lg border border-transparent disabled:opacity-50 disabled:pointer-events-none transition-colors duration-300 ease-in-out", {
+        className={clsx("h-full absolute right-0 w-12 sm:w-fit p-2 sm:p-3 inline-flex focus:outline-hidden justify-center items-center text-sm font-medium rounded-lg border border-transparent disabled:opacity-50 disabled:pointer-events-none transition-colors duration-300 ease-in-out min-h-[44px] touch-manipulation", {
           'bg-blue-600 text-white hover:bg-blue-700 focus:bg-blue-700': !isConvoMode,
           'bg-orange-600 text-black hover:bg-orange-700 focus:bg-orange-700': isConvoMode,
         })}

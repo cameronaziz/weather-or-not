@@ -15,11 +15,11 @@ const Recommendation: FC = () => {
   }
 
   return (
-    <div className="text-center px-4 py-4">
-      <div className="text-lg sm:text-xl font-semibold text-gray-800 dark:text-neutral-200 mb-2">
+    <div className="text-center px-3 sm:px-4 py-3 sm:py-4 md:py-6">
+      <div className="text-base sm:text-lg md:text-xl font-semibold text-gray-800 dark:text-neutral-200 mb-1.5 sm:mb-2 leading-tight">
         {locationName}
       </div>
-      <div className="text-sm sm:text-base text-gray-600 dark:text-neutral-400">
+      <div className="text-sm sm:text-base md:text-lg text-gray-600 dark:text-neutral-400 leading-relaxed max-w-prose mx-auto">
         {recommendation}
       </div>
     </div>

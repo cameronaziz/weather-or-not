@@ -1,5 +1,13 @@
 module.exports = {
   theme: {
+    screens: {
+      'xs': '475px',
+      'sm': '640px',
+      'md': '768px',
+      'lg': '1024px',
+      'xl': '1280px',
+      '2xl': '1536px',
+    },
     extend: {
       animation: {
         'bounce-in':
@@ -19,7 +27,44 @@ module.exports = {
           '75%': { transform: 'rotate(15deg)' },
         },
       },
+      spacing: {
+        'safe': 'env(safe-area-inset-bottom)',
+      },
+      padding: {
+        'safe': 'env(safe-area-inset-bottom)',
+      },
+      margin: {
+        'safe': 'env(safe-area-inset-bottom)',
+      },
     },
   },
-  plugins: [],
+  plugins: [
+    function({ addUtilities }) {
+      const newUtilities = {
+        '.scrollbar-hide': {
+          /* IE and Edge */
+          '-ms-overflow-style': 'none',
+          /* Firefox */
+          'scrollbar-width': 'none',
+          /* Safari and Chrome */
+          '&::-webkit-scrollbar': {
+            display: 'none'
+          }
+        },
+        '.touch-manipulation': {
+          'touch-action': 'manipulation'
+        },
+        '.pt-safe': {
+          'padding-top': 'env(safe-area-inset-top)'
+        },
+        '.pb-safe': {
+          'padding-bottom': 'env(safe-area-inset-bottom)'
+        },
+        '.mb-safe': {
+          'margin-bottom': 'env(safe-area-inset-bottom)'
+        }
+      }
+      addUtilities(newUtilities)
+    }
+  ],
 };
