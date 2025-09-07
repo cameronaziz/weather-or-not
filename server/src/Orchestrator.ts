@@ -22,6 +22,7 @@ class Orchestrator {
   }
 
   run(prompt: string, image?: Buffer) {
+    this.memory.recordMessage('user', prompt);
     if (image) {
       return this.imageInput(image);
     }
@@ -29,7 +30,7 @@ class Orchestrator {
   }
 
   private async *textInput(prompt: string) {
-    await this.memory.recordMessage('user', prompt);
+    await this.memory.recordPart('user', prompt);
     const route = await this.routerAgent.run();
 
     switch (route) {
@@ -38,10 +39,20 @@ class Orchestrator {
         break;
       case 'location_description':
         const weatherData = await this.weatherAgent.run();
+        const message =
+          weatherData.action === 'followup'
+            ? weatherData.data.question
+            : weatherData.action === 'location_confirmed'
+            ? weatherData.data.message
+            : null;
+        if (message) {
+          await this.memory.recordMessage('model', message);
+        }
 
         yield weatherData;
         if (weatherData.action !== 'followup') {
           const attire = await this.attireAgent.run();
+          await this.memory.recordMessage('model', attire.recommendation);
           const completeResponse: SystemResultGeneric<'complete', Attire> = {
             action: 'complete',
             convoId: this.memory.convoId,
@@ -70,6 +81,7 @@ class Orchestrator {
 
     switch (weatherData.action) {
       case 'followup': {
+        await this.memory.recordMessage('model', weatherData.data.question);
         const response = {
           ...weatherData,
           convoId: this.memory.convoId,
@@ -78,6 +90,7 @@ class Orchestrator {
         break;
       }
       case 'location_confirmed': {
+        await this.memory.recordMessage('model', weatherData.data.message);
         const locationResponse = {
           action: 'location' as const,
           convoId: this.memory.convoId,
@@ -89,6 +102,7 @@ class Orchestrator {
         yield locationResponse;
 
         const attire = await this.attireAgent.run();
+        await this.memory.recordMessage('model', attire.recommendation);
         const completeResponse = {
           action: 'complete' as const,
           convoId: this.memory.convoId,
@@ -102,6 +116,7 @@ class Orchestrator {
       }
       case 'weather': {
         const attire = await this.attireAgent.run();
+        await this.memory.recordMessage('model', attire.recommendation);
         const completeResponse = {
           action: 'complete' as const,
           convoId: this.memory.convoId,

@@ -25,6 +25,7 @@ const processRequest = async (
 
   const body = {
     userId,
+    hostname: request.headers.host,
   } as PromptRequestBody;
 
   for await (const part of parts) {

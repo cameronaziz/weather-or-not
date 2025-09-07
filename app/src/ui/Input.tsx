@@ -1,8 +1,16 @@
 import clsx from "clsx"
-import { useCallback, useContext, useEffect, useRef, type ChangeEvent, type FC } from "react"
+import { useCallback, useContext, useEffect, useMemo, useRef, type ChangeEvent, type FC } from "react"
 import Convo from "../context/convo"
 import useSendPrompt from "../hooks/useSendPrompt"
 import { getURLParam, setURLParam } from "../lib/urlParams"
+
+const placeholders = [
+  'Help the detective',
+  'Challenge him some more',
+  'Make him work',
+  'Another clue?',
+  'He\'s waiting',
+]
 
 const NewConvo: FC = () => {
   const { set } = useContext(Convo.Context)
@@ -68,6 +76,13 @@ const Input: FC = () => {
     set('input', value)
   }, [set])
 
+  const placeholder = useMemo(() => {
+    if (isConvoMode) {
+      return placeholders[Math.floor(Math.random() * placeholders.length)]
+    }
+    return hasMessages ? 'Send' : 'Search Weather'
+  }, [hasMessages, isConvoMode])
+
   return (
     <div className={clsx("fixed left-1/2 -translate-x-1/2 rounded-lg flex z-10 w-[90vw] sm:w-[80vw] md:min-w-[40vw] max-w-2xl transition-all duration-700 ease-in-out", {
       "bottom-[35vh] sm:bottom-[40vh]": !hasMessages,
@@ -92,7 +107,7 @@ const Input: FC = () => {
             'border-transparent': isConvoMode,
             'bg-gray-300': loading
           })}
-          placeholder={hasMessages ? 'Send' : 'Search Weather'}
+          placeholder={placeholder}
         />
       </div>
       <button

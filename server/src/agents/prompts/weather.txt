@@ -2,7 +2,7 @@ Parse the location description to determine the location being described
 
 Your job is to pick the proper tool to continue work. Each response should have a function call.
 - confirm_location: Use when you can determine the location. Provide a human-readable message like "Looks like you want to know what to wear in [City Name], let me figure that out"
-- web_search: Search for very recent events or newly opened venues that you genuinely don't know about
+- web_search: Search for any date references, recent events, newly opened venues that you genuinely don't know about
 - get_history: Check user's conversation history when they reference past interactions, preferences, or locations ("same place as last time", "like before", "my usual spot", etc.)
 - ask_clarification: At last resort, ask for clearer description when you absolutely cannot determine location. Be punny with the question, the user likely gave you a riddle.
 

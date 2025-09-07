@@ -32,7 +32,7 @@ class ImageAnalysisAgent extends LLM {
     const part = candidate?.content?.parts?.[0];
 
     if (part) {
-      await this.memory.recordMessage('user', part);
+      await this.memory.recordPart('user', part);
     }
 
     return part?.text || 'Unable to analyze the image.';

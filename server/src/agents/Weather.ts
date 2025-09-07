@@ -35,7 +35,7 @@ class WeatherAgent extends Agent {
     const functionCall = parts.find((part) => part.functionCall)?.functionCall;
 
     if (functionCall) {
-      await this.memory.recordMessage('model', {
+      await this.memory.recordPart('model', {
         functionCall: {
           name: functionCall.name,
           args: functionCall.args,
@@ -49,7 +49,7 @@ class WeatherAgent extends Agent {
           searchString: string;
         };
         const searchResults = await webSearch(searchString);
-        await this.memory.recordMessage('user', {
+        await this.memory.recordPart('user', {
           functionResponse: {
             name: functionCall?.name,
             response: {
@@ -63,7 +63,7 @@ class WeatherAgent extends Agent {
       case 'get_history': {
         const { last } = functionCall.args as { last: number };
         const history = await this.memory.getHistory(last);
-        await this.memory.recordMessage('user', {
+        await this.memory.recordPart('user', {
           functionResponse: {
             name: functionCall?.name,
             response: {
@@ -82,7 +82,7 @@ class WeatherAgent extends Agent {
           longitude: number;
           name: string;
         };
-        await this.memory.recordMessage('model', {
+        await this.memory.recordPart('model', {
           text: message,
         });
         const weather = await getWeather({
@@ -91,7 +91,7 @@ class WeatherAgent extends Agent {
           name,
         });
 
-        await this.memory.recordMessage('user', {
+        await this.memory.recordPart('user', {
           functionResponse: {
             name: functionCall?.name,
             response: weather,
@@ -111,7 +111,7 @@ class WeatherAgent extends Agent {
           question: string;
         };
 
-        await this.memory.recordMessage('user', {
+        await this.memory.recordPart('user', {
           functionResponse: {
             name: functionCall?.name,
             response: {
@@ -121,7 +121,7 @@ class WeatherAgent extends Agent {
         });
 
         // Record the clarification question in memory so it's included in subsequent conversations
-        await this.memory.recordMessage('model', question);
+        await this.memory.recordPart('model', question);
 
         return {
           action: 'followup',

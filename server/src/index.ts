@@ -40,14 +40,15 @@ fastify.register(multipart);
 fastify.register(cookie);
 
 fastify.get('/api/register', async (request, reply) => {
+  const { url } = request;
   if (request.cookies.userId) {
-    const userId = await storage.createUser(request.cookies.userId);
+    const userId = await storage.createUser(url, request.cookies.userId);
     reply.send({
       userId,
       isNew: false,
     });
   } else {
-    const userId = await storage.createUser();
+    const userId = await storage.createUser(url);
     reply.setCookie('userId', userId, {
       httpOnly: true,
       secure: true,
@@ -72,14 +73,12 @@ fastify.get('/api/conversation', async (request, reply) => {
   }
 
   try {
-    const conversation = await storage.getPublicConversation(userId, convoId);
-    const messages = conversation
-      .filter((message) => message.text.text)
-      .map((message) => ({
-        id: message.id,
-        role: message.role,
-        text: message.text.text,
-      }));
+    const frontendMessages = await storage.getFrontendMessages(userId, convoId);
+    const messages = frontendMessages.map((message) => ({
+      id: message.id,
+      role: message.role,
+      text: message.input,
+    }));
     reply.send({ messages });
   } catch (error) {
     console.error('Error fetching conversation:', error);
@@ -102,9 +101,10 @@ fastify.options('/api/prompt', async (request, reply) => {
 
 fastify.post('/api/prompt', async (request, reply) => {
   const requestBody = await processRequest(request);
+  const { url } = request;
 
   if (!requestBody.userId) {
-    const userId = await storage.createUser();
+    const userId = await storage.createUser(url);
     requestBody.userId = userId;
   }
 

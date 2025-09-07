@@ -14,12 +14,14 @@ class Memory {
   public readonly convoId: string;
   public readonly userId: string;
   public readonly model: string;
+  public readonly hostname: string;
   private initialized: boolean = false;
 
   constructor(requestBody: PromptRequestBody, private storage: Storage) {
     this.model = 'gemini-2.5-flash';
     this.convoId = requestBody.convoId ?? crypto.randomUUID();
     this.userId = requestBody.userId;
+    this.hostname = requestBody.hostname;
     this.conversation = [];
     this.history = {};
   }
@@ -38,11 +40,21 @@ class Memory {
     this.initialized = true;
   }
 
-  public async recordMessage(
-    role: Role,
-    input: string | Part,
-    internal?: boolean
-  ): Promise<void> {
+  public async recordMessage(role: Role, input: string): Promise<void> {
+    await this.initialize();
+
+    const messageId = crypto.randomUUID();
+    const dateTime = new Date().toISOString();
+
+    await this.storage.addFrontendMessage(this.userId, this.convoId, {
+      id: messageId,
+      role,
+      input,
+      dateTime,
+    });
+  }
+
+  public async recordPart(role: Role, input: string | Part): Promise<void> {
     await this.initialize();
 
     const dateTime = new Date().toISOString();
@@ -51,7 +63,6 @@ class Memory {
       role,
       text: JSON.stringify(part),
       dateTime,
-      internal,
     };
 
     await this.storage.addMessage(this.userId, this.convoId, messageToStore);
@@ -61,7 +72,6 @@ class Memory {
       role,
       text: part,
       dateTime,
-      internal,
     });
   }
 
@@ -74,20 +84,6 @@ class Memory {
         parts: [message.text],
       })
     );
-  }
-
-  public async getConversationForRouter(): Promise<Content[]> {
-    await this.initialize();
-
-    // Filter out internal messages for router classification
-    return this.conversation
-      .filter((message) => !message.internal)
-      .map(
-        (message): Content => ({
-          role: message.role,
-          parts: [message.text],
-        })
-      );
   }
 
   public async getHistory(last: number): Promise<StoredConversation[]> {

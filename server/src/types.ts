@@ -9,14 +9,12 @@ export type Message = {
   text: Part;
   dateTime: string;
   role: Role;
-  internal?: boolean;
 };
 
 export type MessageToStore = {
   text: string;
   dateTime: string;
   role: Role;
-  internal?: boolean;
 };
 
 export type RecordFunctionCall = {
@@ -39,6 +37,7 @@ export type UserStorage = Record<string, Record<string, StoredConversation>>;
 
 export type PromptRequestBody = {
   userId: string;
+  hostname: string;
   convoId?: string | null;
   prompt: string;
   image?: Buffer;

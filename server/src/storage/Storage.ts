@@ -2,18 +2,27 @@ import { Part } from '@google/genai';
 import { randomUUID } from 'crypto';
 import { Pool } from 'pg';
 import { Message, MessageToStore, Role, StoredConversation } from '../types';
+import { Migrations } from './migrations';
 
 type RawMessage = {
   id: string;
   text: string;
   date_time: string;
   role: string;
-  internal: boolean;
 };
 
-type RawConversation = {
+type FrontendMessage = {
   id: string;
-  last_message_datetime: string;
+  role: string;
+  input: string;
+  dateTime: string;
+};
+
+type RawFrontendMessage = {
+  id: string;
+  role: string;
+  input: string;
+  date_time: string;
 };
 
 class Storage {
@@ -24,14 +33,21 @@ class Storage {
   constructor() {
     this.pool = new Pool({
       connectionString: process.env.DATABASE_URL,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+      ssl:
+        process.env.NODE_ENV === 'production'
+          ? { rejectUnauthorized: false }
+          : false,
     });
   }
 
   private async ensureInitialized(): Promise<void> {
-    if (this.initialized) return;
-    if (this.initPromise) return this.initPromise;
-    
+    if (this.initialized) {
+      return;
+    }
+    if (this.initPromise) {
+      return this.initPromise;
+    }
+
     this.initPromise = this.initTables();
     await this.initPromise;
     this.initialized = true;
@@ -39,43 +55,24 @@ class Storage {
 
   private async initTables(): Promise<void> {
     try {
-      await this.pool.query(`
-        CREATE TABLE IF NOT EXISTS users (
-          id TEXT PRIMARY KEY
-        );
-      `);
-
-      await this.pool.query(`
-        CREATE TABLE IF NOT EXISTS conversations (
-          id TEXT PRIMARY KEY,
-          user_id TEXT NOT NULL,
-          last_message_datetime TEXT NOT NULL,
-          FOREIGN KEY (user_id) REFERENCES users (id)
-        );
-      `);
-
-      await this.pool.query(`
-        CREATE TABLE IF NOT EXISTS messages (
-          id TEXT PRIMARY KEY,
-          conversation_id TEXT NOT NULL,
-          text TEXT NOT NULL,
-          role TEXT NOT NULL,
-          date_time TEXT NOT NULL,
-          internal BOOLEAN DEFAULT FALSE,
-          FOREIGN KEY (conversation_id) REFERENCES conversations (id)
-        );
-      `);
+      // Run migrations to create/update all tables
+      const migrations = new Migrations(this.pool);
+      await migrations.runMigrations();
     } catch (error) {
-      console.error('Error initializing database tables:', error);
+      console.error('Error initializing database:', error);
     }
   }
 
-  async createUser(userId?: string): Promise<string> {
+  async createUser(hostname: string, userId?: string): Promise<string> {
     await this.ensureInitialized();
     const id = userId ?? randomUUID();
-    
+
     try {
-      await this.pool.query('INSERT INTO users (id) VALUES ($1) ON CONFLICT (id) DO NOTHING', [id]);
+      const now = new Date().toISOString();
+      await this.pool.query(
+        'INSERT INTO users (id, hostname, created_at) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING',
+        [id, hostname, now]
+      );
       return id;
     } catch (error) {
       console.error('Error creating user:', error);
@@ -86,14 +83,21 @@ class Storage {
   async verifyUser(userId: string): Promise<string> {
     await this.ensureInitialized();
     try {
-      const result = await this.pool.query('SELECT id FROM users WHERE id = $1', [userId]);
+      const result = await this.pool.query(
+        'SELECT id FROM users WHERE id = $1',
+        [userId]
+      );
 
       if (result.rows.length > 0) {
         return userId;
       }
 
       const newUserId = randomUUID();
-      await this.pool.query('INSERT INTO users (id) VALUES ($1)', [newUserId]);
+      const now = new Date().toISOString();
+      await this.pool.query(
+        'INSERT INTO users (id, hostname, created_at) VALUES ($1, $2, $3)',
+        [newUserId, null, now]
+      );
       return newUserId;
     } catch (error) {
       console.error('Error verifying user:', error);
@@ -101,7 +105,9 @@ class Storage {
     }
   }
 
-  async getHistory(userId: string): Promise<Record<string, StoredConversation>> {
+  async getHistory(
+    userId: string
+  ): Promise<Record<string, StoredConversation>> {
     await this.ensureInitialized();
     await this.ensureUser(userId);
 
@@ -115,7 +121,7 @@ class Storage {
 
       for (const conv of convResult.rows) {
         const msgResult = await this.pool.query(
-          'SELECT id, text, date_time, role, internal FROM messages WHERE conversation_id = $1 ORDER BY date_time ASC',
+          'SELECT id, text, date_time, role FROM messages WHERE conversation_id = $1 ORDER BY date_time ASC',
           [conv.id]
         );
 
@@ -137,8 +143,7 @@ class Storage {
 
   async getFullConversation(
     userId: string,
-    convoId: string,
-    includeInternal: boolean = true
+    convoId: string
   ): Promise<StoredConversation> {
     await this.ensureInitialized();
     const key = convoId || 'default';
@@ -164,19 +169,16 @@ class Storage {
       const conversation = convResult.rows[0];
 
       const msgResult = await this.pool.query(
-        'SELECT id, text, date_time, role, internal FROM messages WHERE conversation_id = $1 ORDER BY date_time ASC',
+        'SELECT id, text, date_time, role FROM messages WHERE conversation_id = $1 ORDER BY date_time ASC',
         [key]
       );
 
       const messages = this.transformRawMessages(msgResult.rows);
-      const filteredMessages = includeInternal
-        ? messages
-        : messages.filter((msg) => !msg.internal);
 
       return {
         convoId: key,
         lastMessageDateTime: conversation.last_message_datetime,
-        messages: filteredMessages,
+        messages: messages,
       };
     } catch (error) {
       console.error('Error getting full conversation:', error);
@@ -189,8 +191,11 @@ class Storage {
     return conversation.messages;
   }
 
-  async getPublicConversation(userId: string, convoId: string): Promise<Message[]> {
-    const conversation = await this.getFullConversation(userId, convoId, false);
+  async getPublicConversation(
+    userId: string,
+    convoId: string
+  ): Promise<Message[]> {
+    const conversation = await this.getFullConversation(userId, convoId);
     return conversation.messages;
   }
 
@@ -206,10 +211,16 @@ class Storage {
 
     try {
       const messageId = randomUUID();
-      
+
       await this.pool.query(
-        'INSERT INTO messages (id, conversation_id, text, role, date_time, internal) VALUES ($1, $2, $3, $4, $5, $6)',
-        [messageId, key, JSON.stringify(message.text), message.role, message.dateTime, message.internal]
+        'INSERT INTO messages (id, conversation_id, text, role, date_time) VALUES ($1, $2, $3, $4, $5)',
+        [
+          messageId,
+          key,
+          JSON.stringify(message.text),
+          message.role,
+          message.dateTime,
+        ]
       );
 
       await this.pool.query(
@@ -222,6 +233,60 @@ class Storage {
     }
   }
 
+  async addFrontendMessage(
+    userId: string,
+    convoId: string,
+    message: FrontendMessage
+  ): Promise<void> {
+    await this.ensureInitialized();
+    const key = convoId || 'default';
+    await this.ensureUser(userId);
+    await this.ensureConversation(key, userId, message.dateTime);
+
+    try {
+      await this.pool.query(
+        'INSERT INTO frontend_messages (id, conversation_id, input, role, date_time) VALUES ($1, $2, $3, $4, $5)',
+        [message.id, key, message.input, message.role, message.dateTime]
+      );
+
+      await this.pool.query(
+        'UPDATE conversations SET last_message_datetime = $1 WHERE id = $2 AND user_id = $3',
+        [message.dateTime, key, userId]
+      );
+    } catch (error) {
+      console.error('Error adding frontend message:', error);
+      throw error;
+    }
+  }
+
+  async getFrontendMessages(
+    userId: string,
+    convoId: string
+  ): Promise<FrontendMessage[]> {
+    await this.ensureInitialized();
+    const key = convoId || 'default';
+    await this.ensureUser(userId);
+
+    try {
+      const result = await this.pool.query(
+        'SELECT id, input, role, date_time FROM frontend_messages WHERE conversation_id = $1 ORDER BY date_time ASC',
+        [key]
+      );
+
+      return result.rows.map(
+        (row: RawFrontendMessage): FrontendMessage => ({
+          id: row.id,
+          role: row.role,
+          input: row.input,
+          dateTime: row.date_time,
+        })
+      );
+    } catch (error) {
+      console.error('Error getting frontend messages:', error);
+      throw error;
+    }
+  }
+
   async close(): Promise<void> {
     await this.pool.end();
   }
@@ -230,7 +295,7 @@ class Storage {
     await this.ensureInitialized();
     try {
       const result = await this.pool.query('SELECT id FROM users');
-      return result.rows.map(row => row.id);
+      return result.rows.map((row) => row.id);
     } catch (error) {
       console.error('Error getting all users:', error);
       throw error;
@@ -238,20 +303,17 @@ class Storage {
   }
 
   private transformRawMessages(rawMessages: RawMessage[]): Message[] {
-    return rawMessages.map(
-      (msg): Message => {
-        const parsedText = JSON.parse(msg.text);
-        // Ensure the parsed text is a valid Part object
-        const validPart = this.ensureValidPart(parsedText);
-        return {
-          id: msg.id,
-          text: validPart,
-          dateTime: msg.date_time,
-          role: msg.role as Role,
-          internal: msg.internal,
-        };
-      }
-    );
+    return rawMessages.map((msg): Message => {
+      const parsedText = JSON.parse(msg.text);
+      // Ensure the parsed text is a valid Part object
+      const validPart = this.ensureValidPart(parsedText);
+      return {
+        id: msg.id,
+        text: validPart,
+        dateTime: msg.date_time,
+        role: msg.role as Role,
+      };
+    });
   }
 
   private ensureValidPart(parsedText: any): Part {
@@ -259,12 +321,12 @@ class Storage {
     if (parsedText && typeof parsedText.text === 'string') {
       return parsedText;
     }
-    
+
     // If it's a string, wrap it in a Part
     if (typeof parsedText === 'string') {
       return { text: parsedText };
     }
-    
+
     // If it has functionCall but no text, ensure it has a text field
     if (parsedText && parsedText.functionCall) {
       return {
@@ -272,15 +334,15 @@ class Storage {
         functionCall: parsedText.functionCall,
       };
     }
-    
-    // If it has functionResponse but no text, ensure it has a text field  
+
+    // If it has functionResponse but no text, ensure it has a text field
     if (parsedText && parsedText.functionResponse) {
       return {
         text: parsedText.text || '',
         functionResponse: parsedText.functionResponse,
       };
     }
-    
+
     // Fallback: return empty text part
     return { text: '' };
   }
@@ -298,8 +360,8 @@ class Storage {
 
       if (result.rows.length === 0) {
         await this.pool.query(
-          'INSERT INTO conversations (id, user_id, last_message_datetime) VALUES ($1, $2, $3)',
-          [conversationId, userId, timestamp]
+          'INSERT INTO conversations (id, user_id, last_message_datetime, created_at) VALUES ($1, $2, $3, $4)',
+          [conversationId, userId, timestamp, timestamp]
         );
       }
     } catch (error) {
@@ -310,10 +372,17 @@ class Storage {
 
   private async ensureUser(userId: string): Promise<void> {
     try {
-      const result = await this.pool.query('SELECT id FROM users WHERE id = $1', [userId]);
-      
+      const result = await this.pool.query(
+        'SELECT id FROM users WHERE id = $1',
+        [userId]
+      );
+
       if (result.rows.length === 0) {
-        await this.pool.query('INSERT INTO users (id) VALUES ($1)', [userId]);
+        const now = new Date().toISOString();
+        await this.pool.query(
+          'INSERT INTO users (id, hostname, created_at) VALUES ($1, $2, $3)',
+          [userId, null, now]
+        );
       }
     } catch (error) {
       console.error('Error ensuring user:', error);

@@ -13,8 +13,7 @@ class RouterAgent extends Agent {
   }
 
   async run(): Promise<Route> {
-    // Use filtered conversation without internal messages
-    const conversation = await this.memory.getConversationForRouter();
+    const conversation = await this.memory.getConversation();
 
     const response = await this.model.generateContent({
       model: this.memory.model,
@@ -27,7 +26,7 @@ class RouterAgent extends Agent {
     const classification =
       part?.text?.trim().toLowerCase() || 'location_description';
 
-    await this.memory.recordMessage('model', `Router: ${classification}`, true);
+    await this.memory.recordPart('model', `Router: ${classification}`);
 
     if (isAcceptableType(classification)) {
       return classification;

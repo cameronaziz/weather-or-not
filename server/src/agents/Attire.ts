@@ -28,7 +28,7 @@ class AttireAgent extends Agent {
     await Promise.all(
       parts.map(async (part) => {
         const { functionCall, text } = part;
-        await this.memory.recordMessage('model', {
+        await this.memory.recordPart('model', {
           text,
           functionCall,
         });
