@@ -115,7 +115,7 @@ const Input: FC = () => {
           onChange={onChange}
           value={input}
           disabled={isLoading}
-          className={clsx('py-3 sm:py-2.5 md:py-3 pl-3 sm:pl-4 pr-14 sm:pr-16 bg-white dark:bg-gray-600 focus:outline-hidden block w-full rounded-lg transition-colors duration-300 ease-in-out text-sm sm:text-base min-h-[44px] touch-manipulation', {
+          className={clsx('py-3 sm:py-2.5 md:py-3 pl-3 sm:pl-4 pr-12 sm:pr-14 bg-white dark:bg-gray-600 focus:outline-hidden block w-full rounded-lg transition-colors duration-300 ease-in-out text-sm sm:text-base min-h-[44px] touch-manipulation', {
             'border-transparent': isConvoMode,
             'bg-gray-300 text-gray-500': isLoading,
           })}
@@ -125,7 +125,7 @@ const Input: FC = () => {
       <button
         disabled={isLoading || input.trim().length === 0}
         onClick={onSubmit}
-        className={clsx("h-full absolute right-0 w-12 sm:w-fit p-2 sm:p-3 inline-flex focus:outline-hidden justify-center items-center text-sm font-medium rounded-lg border border-transparent disabled:opacity-50 disabled:pointer-events-none transition-colors duration-300 ease-in-out min-h-[44px] touch-manipulation", {
+        className={clsx("absolute right-1 top-1 bottom-1 aspect-square p-1 inline-flex focus:outline-hidden justify-center items-center text-sm font-medium rounded-lg border border-transparent disabled:opacity-50 disabled:pointer-events-none transition-colors duration-300 ease-in-out touch-manipulation", {
           'bg-blue-600 text-white hover:bg-blue-700 focus:bg-blue-700': !isConvoMode,
           'bg-orange-600 text-black hover:bg-orange-700 focus:bg-orange-700': isConvoMode,
         })}

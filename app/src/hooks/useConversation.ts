@@ -8,7 +8,7 @@ import type {
 } from '../types';
 
 const useConversation = () => {
-  const { addMessage } = useContext(Convo.Context);
+  const { addMessage, set } = useContext(Convo.Context);
   const hasGottenConversation = useRef(false);
 
   const createConversation = useCallback(async () => {
@@ -25,23 +25,25 @@ const useConversation = () => {
       if (response.messages) {
         addMessage(response.messages);
       } else {
-        createConversation();
+        await createConversation();
       }
     }
   }, [addMessage, createConversation]);
 
-  const conversation = useCallback(() => {
+  const conversation = useCallback(async () => {
+    set('isLoading', true);
     if (hasGottenConversation.current) {
       return;
     }
     hasGottenConversation.current = true;
     const convoId = getURLParam('convoId');
     if (convoId) {
-      getConversation();
+      await getConversation();
     } else {
-      createConversation();
+      await createConversation();
     }
-  }, [createConversation, getConversation]);
+    set('isLoading', false);
+  }, [createConversation, getConversation, set]);
 
   return conversation;
 };
