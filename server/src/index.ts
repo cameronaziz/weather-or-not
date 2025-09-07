@@ -40,15 +40,17 @@ fastify.register(multipart);
 fastify.register(cookie);
 
 fastify.get('/api/register', async (request, reply) => {
-  const { url } = request;
   if (request.cookies.userId) {
-    const userId = await storage.createUser(url, request.cookies.userId);
+    const userId = await storage.createUser(
+      request.hostname,
+      request.cookies.userId
+    );
     reply.send({
       userId,
       isNew: false,
     });
   } else {
-    const userId = await storage.createUser(url);
+    const userId = await storage.createUser(request.hostname);
     reply.setCookie('userId', userId, {
       httpOnly: true,
       secure: true,
@@ -101,10 +103,9 @@ fastify.options('/api/prompt', async (request, reply) => {
 
 fastify.post('/api/prompt', async (request, reply) => {
   const requestBody = await processRequest(request);
-  const { url } = request;
 
   if (!requestBody.userId) {
-    const userId = await storage.createUser(url);
+    const userId = await storage.createUser(request.hostname);
     requestBody.userId = userId;
   }
 
