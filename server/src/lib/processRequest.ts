@@ -1,8 +1,4 @@
-import {
-  FastifyRequest,
-  RawServerDefault,
-  RouteGenericInterface,
-} from 'fastify';
+import { FastifyRequest } from 'fastify';
 import { PromptRequestBody } from '../types';
 
 const sanitizePrompt = (text: string) =>
@@ -17,15 +13,23 @@ const sanitizePrompt = (text: string) =>
     .replace(/<[^>]*>/g, '')
     .trim();
 
-const processRequest = async (
-  request: FastifyRequest<RouteGenericInterface, RawServerDefault>
-) => {
+export const getHostname = (request: FastifyRequest): string => {
+  const forwardedHost = request.headers['x-forwarded-host'];
+  if (forwardedHost) {
+    return Array.isArray(forwardedHost) ? forwardedHost[0] : forwardedHost;
+  }
+
+  const host = request.headers.host;
+  return Array.isArray(host) ? host[0] : host || 'unknown';
+};
+
+const processRequest = async (request: FastifyRequest) => {
   const { userId } = request.cookies;
   const parts = request.parts();
 
   const body = {
     userId,
-    hostname: request.headers.host,
+    hostname: getHostname(request),
   } as PromptRequestBody;
 
   for await (const part of parts) {

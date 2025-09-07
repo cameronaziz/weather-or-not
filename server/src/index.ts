@@ -2,7 +2,7 @@ import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import Fastify from 'fastify';
-import processRequest from './lib/processRequest';
+import processRequest, { getHostname } from './lib/processRequest';
 import Orchestrator from './Orchestrator';
 import Storage from './storage/Storage';
 
@@ -42,7 +42,7 @@ fastify.register(cookie);
 fastify.get('/api/register', async (request, reply) => {
   if (request.cookies.userId) {
     const userId = await storage.createUser(
-      request.hostname,
+      getHostname(request),
       request.cookies.userId
     );
     reply.send({
@@ -50,7 +50,7 @@ fastify.get('/api/register', async (request, reply) => {
       isNew: false,
     });
   } else {
-    const userId = await storage.createUser(request.hostname);
+    const userId = await storage.createUser(getHostname(request));
     reply.setCookie('userId', userId, {
       httpOnly: true,
       secure: true,
@@ -105,7 +105,7 @@ fastify.post('/api/prompt', async (request, reply) => {
   const requestBody = await processRequest(request);
 
   if (!requestBody.userId) {
-    const userId = await storage.createUser(request.hostname);
+    const userId = await storage.createUser(getHostname(request));
     requestBody.userId = userId;
   }
 
