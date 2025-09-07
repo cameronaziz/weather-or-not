@@ -27,7 +27,10 @@ abstract class Agent {
   }
 
   protected get config(): GenerateContentConfig {
-    const text = `Today is ${new Date().toDateString()}\n${this.systemPrompt}`;
+    const today = `Today is ${new Date().toDateString()}`;
+    const toolUse = `You must consider the cost of each tool use. Repetative tool use should be avoided.`;
+    const text = `${today}\n${toolUse}\n${this.systemPrompt} `;
+
     return {
       systemInstruction: {
         parts: [
