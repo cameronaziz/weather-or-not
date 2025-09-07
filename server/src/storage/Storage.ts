@@ -1,3 +1,4 @@
+import { Part } from '@google/genai';
 import { randomUUID } from 'crypto';
 import { Pool } from 'pg';
 import { Message, MessageToStore, Role, StoredConversation } from '../types';
@@ -238,14 +239,50 @@ class Storage {
 
   private transformRawMessages(rawMessages: RawMessage[]): Message[] {
     return rawMessages.map(
-      (msg): Message => ({
-        id: msg.id,
-        text: JSON.parse(msg.text),
-        dateTime: msg.date_time,
-        role: msg.role as Role,
-        internal: msg.internal,
-      })
+      (msg): Message => {
+        const parsedText = JSON.parse(msg.text);
+        // Ensure the parsed text is a valid Part object
+        const validPart = this.ensureValidPart(parsedText);
+        return {
+          id: msg.id,
+          text: validPart,
+          dateTime: msg.date_time,
+          role: msg.role as Role,
+          internal: msg.internal,
+        };
+      }
     );
+  }
+
+  private ensureValidPart(parsedText: any): Part {
+    // If it's already a valid part with text, return it
+    if (parsedText && typeof parsedText.text === 'string') {
+      return parsedText;
+    }
+    
+    // If it's a string, wrap it in a Part
+    if (typeof parsedText === 'string') {
+      return { text: parsedText };
+    }
+    
+    // If it has functionCall but no text, ensure it has a text field
+    if (parsedText && parsedText.functionCall) {
+      return {
+        text: parsedText.text || '',
+        functionCall: parsedText.functionCall,
+      };
+    }
+    
+    // If it has functionResponse but no text, ensure it has a text field  
+    if (parsedText && parsedText.functionResponse) {
+      return {
+        text: parsedText.text || '',
+        functionResponse: parsedText.functionResponse,
+      };
+    }
+    
+    // Fallback: return empty text part
+    return { text: '' };
   }
 
   private async ensureConversation(
