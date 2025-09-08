@@ -103,7 +103,7 @@ const Input: FC = () => {
       'w-[95vw] xs:w-[90vw] sm:w-[80vw] md:w-[70vw] lg:min-w-[40vw] max-w-2xl sm:mx-0': !hasMessages,
       'w-full max-w-xl': hasMessages,
     })}>
-      <div>
+      <div className="w-full">
         <label
           htmlFor="prompt-input"
           className="block text-sm text-gray-700 font-medium dark:text-white"
