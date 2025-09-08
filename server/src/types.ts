@@ -55,6 +55,8 @@ export type WeatherData = {
   latitude: number;
   longitude: number;
   forecast: WeatherDay[];
+  dateType?: string;
+  timeContext?: string;
 };
 
 export type Followup = {

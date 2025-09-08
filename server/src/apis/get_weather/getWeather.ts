@@ -24,6 +24,23 @@ export const getWeatherFunctionDeclaration: FunctionDeclaration = {
         type: Type.NUMBER,
         description: 'The longitude, e.g. 74.0060',
       },
+      dateType: {
+        type: Type.STRING,
+        enum: ['default', 'specific_dates', 'historical_period'],
+        description: 'default: next 7 days, specific_dates: within next 16 days, historical_period: beyond 16 days using historical data',
+      },
+      startDate: {
+        type: Type.STRING,
+        description: 'Start date in YYYY-MM-DD format. Only provide if dateType is specific_dates or historical_period',
+      },
+      endDate: {
+        type: Type.STRING,
+        description: 'End date in YYYY-MM-DD format. Only provide if dateType is specific_dates or historical_period',
+      },
+      timeContext: {
+        type: Type.STRING,
+        description: 'Human-readable time context: "this weekend", "next week", "in December", "for Christmas", etc. Leave empty if no specific time mentioned.',
+      },
     },
     required: ['latitude', 'longitude', 'name'],
   },
@@ -45,7 +62,8 @@ namespace WeatherResponse {
   };
 }
 
-const BASE_PATH = 'https://api.open-meteo.com/v1/forecast';
+const FORECAST_BASE_PATH = 'https://api.open-meteo.com/v1/forecast';
+const HISTORICAL_BASE_PATH = 'https://archive-api.open-meteo.com/v1/archive';
 
 const PARAMS = [
   'temperature_2m_max',
@@ -63,16 +81,25 @@ type FetchWeatherOptions = {
   longitude: number;
   startDate: string;
   endDate: string;
+  useHistorical?: boolean;
 };
 
 const fetchWeather = async (options: FetchWeatherOptions) => {
-  const { latitude, longitude, startDate, endDate } = options;
-  const model = pickModel(latitude, longitude);
-  const endpoint = `${BASE_PATH}?${UNITS}&${DAILY}&latitude=${latitude}&longitude=${longitude}&start_date=${startDate}&end_date=${endDate}${model}`;
+  const {
+    latitude,
+    longitude,
+    startDate,
+    endDate,
+    useHistorical = false,
+  } = options;
+  const basePath = useHistorical ? HISTORICAL_BASE_PATH : FORECAST_BASE_PATH;
+  const modelParam = useHistorical ? '' : pickModel(latitude, longitude);
+  const endpoint = `${basePath}?${UNITS}&${DAILY}&latitude=${latitude}&longitude=${longitude}&start_date=${startDate}&end_date=${endDate}${modelParam}`;
 
   const response = await fetch(endpoint);
 
   if (!response.ok) {
+    console.error('Weather API error:', response.status, response.statusText);
     throw new Error(`HTTP error! status: ${response.status}`);
   }
 
@@ -89,31 +116,74 @@ const formatResponse = (response: WeatherResponse.JSON) => {
   }));
 };
 
+const getDates = async (options: GetWeatherOptions) => {
+  const {
+    latitude,
+    longitude,
+    dateType = 'default',
+    startDate,
+    endDate,
+  } = options;
+  const timezone = await determineTimeZone(latitude, longitude);
+  const localDate = new Date();
+  const locationTime = toZonedTime(localDate, timezone.timeZoneId);
+
+  if (dateType === 'default') {
+    return {
+      startDate: format(locationTime, 'yyyy-MM-dd', {
+        timeZone: timezone.timeZoneId,
+      }),
+      endDate: format(addDays(locationTime, 7), 'yyyy-MM-dd', {
+        timeZone: timezone.timeZoneId,
+      }),
+      useHistorical: false,
+    };
+  } else if (dateType === 'specific_dates' && startDate && endDate) {
+    return {
+      startDate,
+      endDate,
+      useHistorical: false,
+    };
+  } else if (dateType === 'historical_period' && startDate && endDate) {
+    return {
+      startDate,
+      endDate,
+      useHistorical: true,
+    };
+  } else {
+    // Fallback to default
+    return {
+      startDate: format(locationTime, 'yyyy-MM-dd', {
+        timeZone: timezone.timeZoneId,
+      }),
+      endDate: format(addDays(locationTime, 7), 'yyyy-MM-dd', {
+        timeZone: timezone.timeZoneId,
+      }),
+      useHistorical: false,
+    };
+  }
+};
+
 type GetWeatherOptions = {
   name: string;
   latitude: number;
   longitude: number;
+  dateType?: string;
+  startDate?: string;
+  endDate?: string;
+  timeContext?: string;
 };
 
 const getWeather = async (options: GetWeatherOptions): Promise<WeatherData> => {
-  const { latitude, longitude } = options;
-  const localDate = new Date();
-  const timezone = await determineTimeZone(latitude, longitude);
-  const locationTime = toZonedTime(localDate, timezone.timeZoneId);
-
-  const startDate = format(locationTime, 'yyyy-MM-dd', {
-    timeZone: timezone.timeZoneId,
-  });
-
-  const endDate = format(addDays(locationTime, 7), 'yyyy-MM-dd', {
-    timeZone: timezone.timeZoneId,
-  });
+  const { latitude, longitude, dateType = 'default' } = options;
+  const { startDate, endDate, useHistorical } = await getDates(options);
 
   const weather = await fetchWeather({
     latitude,
     longitude,
     startDate,
     endDate,
+    useHistorical,
   });
 
   const forecast = formatResponse(weather);
@@ -121,6 +191,8 @@ const getWeather = async (options: GetWeatherOptions): Promise<WeatherData> => {
   return {
     ...options,
     forecast,
+    dateType,
+    timeContext: options.timeContext,
   };
 };
 

@@ -26,7 +26,7 @@ class RouterAgent extends Agent {
     const classification =
       part?.text?.trim().toLowerCase() || 'location_description';
 
-    await this.memory.recordPart('model', `Router: ${classification}`);
+    // Debug logging only - don't record to frontend messages
 
     if (isAcceptableType(classification)) {
       return classification;

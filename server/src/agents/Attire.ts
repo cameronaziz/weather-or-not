@@ -1,4 +1,3 @@
-import { searchProductsFunctionDeclaration } from '../apis/search_products/searchProducts';
 import Memory from '../storage/Memory';
 import { Attire } from '../types';
 import Agent from './Agent';
@@ -10,11 +9,11 @@ class AttireAgent extends Agent {
 
   public async run(): Promise<Attire> {
     const response = await this.generateContent({
-      tools: [
-        {
-          functionDeclarations: [searchProductsFunctionDeclaration],
-        },
-      ],
+      // tools: [
+      //   {
+      //     functionDeclarations: [searchProductsFunctionDeclaration],
+      //   },
+      // ],
     });
 
     const candidate = response.candidates?.[0];

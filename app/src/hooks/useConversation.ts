@@ -12,6 +12,7 @@ const useConversation = () => {
   const hasGottenConversation = useRef(false);
 
   const createConversation = useCallback(async () => {
+    setURLParam('convoId');
     const response = await API.post<CreateConversationResponse>('conversation');
     setURLParam('convoId', response.convoId);
   }, []);

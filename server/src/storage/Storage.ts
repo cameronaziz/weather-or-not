@@ -235,7 +235,7 @@ class Storage {
         [
           messageId,
           key,
-          JSON.stringify(message.text),
+          message.text,
           message.role,
           message.dateTime,
         ]
@@ -330,7 +330,18 @@ class Storage {
 
   private transformRawMessages(rawMessages: RawMessage[]): Message[] {
     return rawMessages.map((msg): Message => {
-      const parsedText = JSON.parse(msg.text);
+      let parsedText;
+      try {
+        parsedText = JSON.parse(msg.text);
+        // Handle double-encoded JSON from old data
+        if (typeof parsedText === 'string') {
+          parsedText = JSON.parse(parsedText);
+        }
+      } catch (error) {
+        // If parsing fails, treat as plain text
+        parsedText = { text: msg.text };
+      }
+      
       // Ensure the parsed text is a valid Part object
       const validPart = this.ensureValidPart(parsedText);
       return {
@@ -343,9 +354,9 @@ class Storage {
   }
 
   private ensureValidPart(parsedText: any): Part {
-    // If it's already a valid part with text, return it
+    // If it's already a valid part with text, return only the text
     if (parsedText && typeof parsedText.text === 'string') {
-      return parsedText;
+      return { text: parsedText.text };
     }
 
     // If it's a string, wrap it in a Part
@@ -353,20 +364,14 @@ class Storage {
       return { text: parsedText };
     }
 
-    // If it has functionCall but no text, ensure it has a text field
+    // If it has functionCall but no text, return empty text (don't expose function details)
     if (parsedText && parsedText.functionCall) {
-      return {
-        text: parsedText.text || '',
-        functionCall: parsedText.functionCall,
-      };
+      return { text: parsedText.text || '' };
     }
 
-    // If it has functionResponse but no text, ensure it has a text field
+    // If it has functionResponse but no text, return empty text (don't expose function details)
     if (parsedText && parsedText.functionResponse) {
-      return {
-        text: parsedText.text || '',
-        functionResponse: parsedText.functionResponse,
-      };
+      return { text: parsedText.text || '' };
     }
 
     // Fallback: return empty text part

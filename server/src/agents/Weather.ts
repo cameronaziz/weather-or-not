@@ -34,6 +34,13 @@ class WeatherAgent extends Agent {
     const parts = candidate?.content?.parts || [];
     const functionCall = parts.find((part) => part.functionCall)?.functionCall;
 
+    const textPart = parts.find((part) => part.text);
+    if (textPart?.text) {
+      await this.memory.recordPart('model', {
+        text: textPart.text,
+      });
+    }
+
     if (functionCall) {
       await this.memory.recordPart('model', {
         functionCall: {
@@ -76,19 +83,33 @@ class WeatherAgent extends Agent {
       }
       // Exits
       case 'confirm_location': {
-        const { message, latitude, longitude, name } = functionCall.args as {
+        const {
+          message,
+          latitude,
+          longitude,
+          name,
+          dateType,
+          startDate,
+          endDate,
+          timeContext,
+        } = functionCall.args as {
           message: string;
           latitude: number;
           longitude: number;
           name: string;
+          dateType?: string;
+          startDate?: string;
+          endDate?: string;
+          timeContext?: string;
         };
-        await this.memory.recordPart('model', {
-          text: message,
-        });
         const weather = await getWeather({
           latitude,
           longitude,
           name,
+          dateType: dateType || 'default',
+          startDate,
+          endDate,
+          timeContext,
         });
 
         await this.memory.recordPart('user', {
@@ -120,9 +141,6 @@ class WeatherAgent extends Agent {
           },
         });
 
-        // Record the clarification question in memory so it's included in subsequent conversations
-        await this.memory.recordPart('model', question);
-
         return {
           action: 'followup',
           convoId: this.memory.convoId,
@@ -131,14 +149,64 @@ class WeatherAgent extends Agent {
           },
         };
       }
-      default:
+      case 'get_weather': {
+        const {
+          name,
+          latitude,
+          longitude,
+          dateType,
+          startDate,
+          endDate,
+          timeContext,
+        } = functionCall.args as {
+          name: string;
+          latitude: number;
+          longitude: number;
+          dateType?: string;
+          startDate?: string;
+          endDate?: string;
+          timeContext?: string;
+        };
+
+        const weather = await getWeather({
+          latitude,
+          longitude,
+          name,
+          dateType: dateType || 'default',
+          startDate,
+          endDate,
+          timeContext,
+        });
+
+        await this.memory.recordPart('user', {
+          functionResponse: {
+            name: functionCall?.name,
+            response: weather,
+          },
+        });
+
         return {
-          action: 'followup',
+          action: 'location_confirmed',
           convoId: this.memory.convoId,
           data: {
-            question: 'Cannot determine location',
+            message: name,
+            weather,
           },
         };
+      }
+      default:
+        const textPart = parts.find((part) => part.text);
+        if (textPart?.text) {
+          return {
+            action: 'followup',
+            convoId: this.memory.convoId,
+            data: {
+              question: textPart.text,
+            },
+          };
+        }
+
+        return this.run();
     }
   }
 
