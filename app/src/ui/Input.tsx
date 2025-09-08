@@ -97,11 +97,13 @@ const Input: FC = () => {
   }), [hasMessages, isSmallHeight])
 
   return (
-    <div className={clsx("fixed left-1/2 -translate-x-1/2 rounded-lg flex z-10 w-[95vw] xs:w-[90vw] sm:w-[80vw] md:w-[70vw] lg:min-w-[40vw] max-w-2xl transition-all duration-700 ease-in-out mx-3 sm:mx-0", {
+    <div className={clsx("fixed left-1/2 -translate-x-1/2 rounded-lg flex z-10 transition-all duration-700 ease-in-out mx-3", {
       ...positionClasses,
       'border border-solid border-blue-400': !isConvoMode,
+      'w-[95vw] xs:w-[90vw] sm:w-[80vw] md:w-[70vw] lg:min-w-[40vw] max-w-2xl sm:mx-0': !hasMessages,
+      'w-full max-w-xl': hasMessages,
     })}>
-      <div className="w-full">
+      <div>
         <label
           htmlFor="prompt-input"
           className="block text-sm text-gray-700 font-medium dark:text-white"
@@ -115,7 +117,7 @@ const Input: FC = () => {
           onChange={onChange}
           value={input}
           disabled={isLoading}
-          className={clsx('py-3 sm:py-2.5 md:py-3 pl-3 sm:pl-4 pr-12 sm:pr-14 bg-white dark:bg-gray-600 focus:outline-hidden block w-full rounded-lg transition-colors duration-300 ease-in-out text-sm sm:text-base min-h-[44px] touch-manipulation', {
+          className={clsx('py-3 sm:py-2.5 md:py-3 pl-3 sm:pl-4 pr-12 sm:pr-14 bg-white dark:bg-gray-600 focus:outline-hidden block w-full rounded-lg transition-all duration-700 ease-in-out text-sm sm:text-base min-h-[44px] touch-manipulation', {
             'border-transparent': isConvoMode,
             'bg-gray-300 text-gray-500': isLoading,
           })}
