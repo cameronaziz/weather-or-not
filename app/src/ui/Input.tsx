@@ -91,17 +91,17 @@ const Input: FC = () => {
   }, [isConvoMode, messages.length])
 
   const positionClasses = useMemo(() => ({
-    "bottom-4 sm:bottom-6 md:bottom-8 mb-safe": hasMessages,
+    "bottom-8 sm:bottom-6 md:bottom-8 mb-safe": hasMessages,
     "bottom-8 sm:bottom-12 md:bottom-16 mb-safe": !hasMessages && isSmallHeight,
     "bottom-[20vh] xs:bottom-[25vh] sm:bottom-[30vh] md:bottom-[35vh] lg:bottom-[40vh]": !hasMessages && !isSmallHeight,
   }), [hasMessages, isSmallHeight])
 
   return (
-    <div className={clsx("fixed left-1/2 -translate-x-1/2 rounded-lg flex z-10 transition-all duration-700 ease-in-out mx-3", {
+    <div className={clsx("fixed left-3 right-3 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 rounded-lg flex z-10 transition-all duration-700 ease-in-out", {
       ...positionClasses,
       'border border-solid border-blue-400': !isConvoMode,
-      'w-[95vw] xs:w-[90vw] sm:w-[80vw] md:w-[70vw] lg:min-w-[40vw] max-w-2xl sm:mx-0': !hasMessages,
-      'w-full max-w-xl': hasMessages,
+      'sm:w-[80vw] md:w-[70vw] lg:min-w-[40vw] max-w-2xl': !hasMessages,
+      'sm:w-full max-w-xl': hasMessages,
     })}>
       <div className="w-full">
         <label
