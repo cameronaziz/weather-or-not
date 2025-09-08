@@ -32,7 +32,7 @@ const isInUSHRRRRegion = (latitude: number, longitude: number) =>
   longitude >= -130.0 &&
   longitude <= -60.0;
 
-const deterineModel = (latitude: number, longitude: number) => {
+const determineModel = (latitude: number, longitude: number) => {
   if (isInCanadaHRDPSRegion(latitude, longitude)) {
     return 'gem_seamless';
   }
@@ -57,7 +57,7 @@ const deterineModel = (latitude: number, longitude: number) => {
 };
 
 const pickModel = (latitude: number, longitude: number) => {
-  const model = deterineModel(latitude, longitude);
+  const model = determineModel(latitude, longitude);
   return model ? `&models=${model}` : '';
 };
 

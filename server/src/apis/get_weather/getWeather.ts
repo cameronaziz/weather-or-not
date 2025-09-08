@@ -27,19 +27,23 @@ export const getWeatherFunctionDeclaration: FunctionDeclaration = {
       dateType: {
         type: Type.STRING,
         enum: ['default', 'specific_dates', 'historical_period'],
-        description: 'default: next 7 days, specific_dates: within next 16 days, historical_period: beyond 16 days using historical data',
+        description:
+          'default: next 7 days, specific_dates: within next 16 days, historical_period: beyond 16 days using historical data',
       },
       startDate: {
         type: Type.STRING,
-        description: 'Start date in YYYY-MM-DD format. Only provide if dateType is specific_dates or historical_period',
+        description:
+          'Start date in YYYY-MM-DD format. Only provide if dateType is specific_dates or historical_period',
       },
       endDate: {
         type: Type.STRING,
-        description: 'End date in YYYY-MM-DD format. Only provide if dateType is specific_dates or historical_period',
+        description:
+          'End date in YYYY-MM-DD format. Only provide if dateType is specific_dates or historical_period',
       },
       timeContext: {
         type: Type.STRING,
-        description: 'Human-readable time context: "this weekend", "next week", "in December", "for Christmas", etc. Leave empty if no specific time mentioned.',
+        description:
+          'Human-readable time context: "this weekend", "next week", "in December", "for Christmas", etc. Leave empty if no specific time mentioned.',
       },
     },
     required: ['latitude', 'longitude', 'name'],
@@ -111,7 +115,7 @@ const formatResponse = (response: WeatherResponse.JSON) => {
   return daily.time.map((day, index) => ({
     day,
     high: daily.temperature_2m_max[index],
-    low: daily.temperature_2m_max[index],
+    low: daily.temperature_2m_min[index],
     weather: wmoWeatherCodes[daily.weather_code[index]],
   }));
 };

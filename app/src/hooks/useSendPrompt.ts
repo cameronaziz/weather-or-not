@@ -37,7 +37,7 @@ const useSendPrompt = () => {
             } = response;
             setURLParam('convoId', convoId);
             addMessage({
-              role: 'system',
+              role: 'model',
               text: message,
               id: `${Math.random()}`,
             });
@@ -50,7 +50,7 @@ const useSendPrompt = () => {
             } = response;
             if (question) {
               addMessage({
-                role: 'system',
+                role: 'model',
                 text: question,
                 id: `${Math.random()}`,
               });
@@ -63,7 +63,7 @@ const useSendPrompt = () => {
           }
           case 'complete':
             addMessage({
-              role: 'system',
+              role: 'model',
               text: response.data.recommendation,
               id: `${Math.random()}`,
             });
