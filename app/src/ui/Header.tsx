@@ -38,7 +38,7 @@ const Title: FC = () => {
       </h1>
       <p className={clsx('mt-1.5 sm:mt-2 md:mt-3 text-xs xs:text-sm sm:text-base md:text-lg transition-colors duration-200 ease-in-out px-2 sm:px-0', {
         'text-gray-600 dark:text-neutral-400': !isConvoMode,
-        'text-gray-300 dark:text-neutral-800': isConvoMode
+        'text-gray-500 dark:text-neutral-800': isConvoMode
       })}>
         {subTitle}
       </p>

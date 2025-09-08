@@ -16,7 +16,7 @@ const WeatherOrNot: FC = () => {
 
   return (
     <div className={clsx("relative h-dvh transition-colors duration-500 ease-in-out px-3 sm:px-6 md:px-8 lg:px-[15vw] xl:px-[20vw] pb-safe", {
-      'bg-purple-500': isConvoMode
+      'bg-purple-300': isConvoMode
     })}>
       <div className={clsx("transition-all duration-700 ease-in-out", {
         "flex flex-col items-center justify-center h-dvh gap-6 sm:gap-8 md:gap-12": !hasMessages,
