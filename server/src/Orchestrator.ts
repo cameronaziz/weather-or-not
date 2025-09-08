@@ -35,7 +35,16 @@ class Orchestrator {
 
     switch (route) {
       case 'direct_weather':
-        yield* this.getAttireStream();
+        const attire = await this.attireAgent.run();
+        await this.memory.recordMessage('model', attire.recommendation);
+        const completeResponse = {
+          action: 'complete' as const,
+          convoId: this.memory.convoId,
+          data: {
+            ...attire,
+          },
+        };
+        yield completeResponse;
         break;
       case 'location_description':
         const weatherData = await this.weatherAgent.run();

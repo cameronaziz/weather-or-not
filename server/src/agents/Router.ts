@@ -27,11 +27,13 @@ class RouterAgent extends Agent {
       part?.text?.trim().toLowerCase() || 'location_description';
 
     // Debug logging only - don't record to frontend messages
+    console.log('Router classification:', classification);
 
     if (isAcceptableType(classification)) {
       return classification;
     }
 
+    console.log('Router defaulting to location_description');
     return 'location_description';
   }
 }
