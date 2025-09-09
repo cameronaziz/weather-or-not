@@ -9,7 +9,7 @@ const STREAM_HEADERS = {
   'Cache-Control': 'no-cache',
   Connection: 'keep-alive',
   'Access-Control-Allow-Origin':
-    process.env.NODE_ENV === 'production'
+    process.env.DEPLOYMENT === 'production'
       ? 'https://weatherornot.cameronaziz.dev'
       : 'http://localhost:5173',
   'Access-Control-Allow-Credentials': 'true',
@@ -58,7 +58,7 @@ class Prompt extends Handler {
     return async (_request: FastifyRequest, reply: FastifyReply) => {
       reply.headers({
         'Access-Control-Allow-Origin':
-          process.env.NODE_ENV === 'production'
+          process.env.DEPLOYMENT === 'production'
             ? 'https://weatherornot.cameronaziz.dev'
             : 'http://localhost:5173',
         'Access-Control-Allow-Credentials': 'true',

@@ -43,7 +43,7 @@ export default (req: any, res: any) => run(req, res);
 module.exports = (req: any, res: any) => run(req, res);
 
 // For local development
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.DEPLOYMENT === 'local') {
   const start = async () => {
     const port = Number(process.env.VITE_SERVER_PORT);
     try {
