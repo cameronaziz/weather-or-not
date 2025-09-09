@@ -1,4 +1,24 @@
 import { FunctionDeclaration, Type } from '@google/genai';
+import { get } from 'https';
+import { JSDOM } from 'jsdom';
+
+const fetchHtmlContent = (url: string): Promise<string> =>
+  new Promise((resolve, reject) => {
+    get(url, (res) => {
+      let html = '';
+      res.on('data', (chunk) => {
+        html += chunk;
+      });
+      res.on('end', () => {
+        resolve(html);
+      });
+      res.on('error', (err) => {
+        reject(err);
+      });
+    }).on('error', (err) => {
+      reject(err);
+    });
+  });
 
 const ENDPOINT = 'https://api.search.brave.com/res/v1/web/search';
 
@@ -37,7 +57,33 @@ const webSearch = async (searchString: string): Promise<string> => {
   );
 
   const data = (await response.json()) as BraveResponse;
-  return JSON.stringify(data.web?.results?.slice(0, 3) || []);
+  const results = data.web?.results || [];
+
+  const pagesPromises = results.slice(0, 3).map(async (result) => {
+    try {
+      const content = await fetchHtmlContent(result.url as string);
+      const dom = new JSDOM(content);
+
+      return {
+        title: result.title,
+        description: result.title,
+        content: dom.window.document.body.textContent,
+      };
+    } catch {
+      return {
+        title: result.title,
+        description: result.title,
+      };
+    }
+  });
+
+  const fetchedPages = await Promise.allSettled(pagesPromises);
+  const unfetchedPages = results.slice(3).map((result) => ({
+    title: result.title,
+    description: result.title,
+  }));
+
+  return JSON.stringify([...fetchedPages, ...unfetchedPages]);
 };
 
 export default webSearch;
