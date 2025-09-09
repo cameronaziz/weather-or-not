@@ -31,12 +31,17 @@ class Storage {
   private initPromise: Promise<void> | null = null;
 
   constructor() {
+    const connectionString =
+      process.env.DEPLOYMENT === 'production'
+        ? process.env.DATABASE_URL
+        : process.env.DEV_DATABASE_URL;
+
     this.pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
+      connectionString,
       ssl:
-        process.env.DEPLOYMENT === 'production'
-          ? { rejectUnauthorized: false }
-          : false,
+        process.env.DEPLOYMENT === 'local'
+          ? false
+          : { rejectUnauthorized: false },
     });
   }
 
